@@ -48,12 +48,12 @@ export type BuildConfig = {
   solAddress?: string;
   solRpcEndpoints?: string;
   iosBundleId?: string;
-  useDonut?: boolean;
-  donutSingleThreaded?: boolean;
-  donutExitMode?: number;
-  donutEntropy?: number;
-  donutPreserveHeaders?: boolean;
-  donutResumeOffset?: number;
+  useCupcake?: boolean;
+  CupcakeSingleThreaded?: boolean;
+  CupcakeExitMode?: number;
+  CupcakeEntropy?: number;
+  CupcakePreserveHeaders?: boolean;
+  CupcakeResumeOffset?: number;
   useLinuxShellcode?: boolean;
   shellcodeConsole?: boolean;
   useSgn?: boolean;

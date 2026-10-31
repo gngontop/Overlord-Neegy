@@ -29,7 +29,7 @@ var (
 )
 
 // isRunningInMemory returns true when the agent's data section is in
-// anonymous private memory (Donut-injected shellcode) rather than a
+// anonymous private memory (Cupcake-injected shellcode) rather than a
 // file-backed image section.
 func isRunningInMemory() bool {
 	var mbi _memBasicInfo

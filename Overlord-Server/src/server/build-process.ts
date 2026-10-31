@@ -18,7 +18,7 @@ import {
   toolchainKeyForTarget,
   type EnsuredToolchain,
 } from "./toolchain-manager";
-import { runDonut } from "./donut-manager";
+import { runCupcake } from "./cupcake-manager";
 import { buildLinuxShellcode } from "./linux-shellcode-manager";
 import { runSgn } from "./sgn-manager";
 import { resolveContainedPath } from "./upload-security";
@@ -141,12 +141,12 @@ type BuildProcessConfig = {
   outputExtension?: string;
   sleepSeconds?: number;
   boundFiles?: BoundFile[];
-  useDonut?: boolean;
-  donutSingleThreaded?: boolean;
-  donutExitMode?: number;
-  donutEntropy?: number;
-  donutPreserveHeaders?: boolean;
-  donutResumeOffset?: number;
+  useCupcake?: boolean;
+  cupcakeSingleThreaded?: boolean;
+  cupcakeExitMode?: number;
+  cupcakeEntropy?: number;
+  cupcakePreserveHeaders?: boolean;
+  cupcakeResumeOffset?: number;
   useLinuxShellcode?: boolean;
   shellcodeConsole?: boolean;
   useSgn?: boolean;
@@ -1602,7 +1602,7 @@ func runBoundFiles() {
         }
       }
 
-      const isShellcodeMode = !!(config.useDonut || config.useLinuxShellcode);
+      const isShellcodeMode = !!(config.useCupcake || config.useLinuxShellcode);
 
       try {
         logger.info(`[build:${buildId.substring(0, 8)}] GOOS=${os} GOARCH=${actualArch} CGO=${env.CGO_ENABLED} CC=${env.CC || "<default>"} shellcode=${isShellcodeMode}`);
@@ -2123,25 +2123,25 @@ func runBoundFiles() {
         }
         // ── End IPA packaging ─────────────────────────────────────────────────
 
-        // ── Donut: Windows PE → shellcode ──────────────────────────────────
+        // ── Cupcake: Windows PE → shellcode ──────────────────────────────────
         let finalOutputName = outputName;
         let finalOutputSize = finalSize;
 
         let shellcodeBinPath: string | null = null;
         let shellcodeArch: "amd64" | "386" | null = null;
 
-        if (config.useDonut && os === "windows") {
+        if (config.useCupcake && os === "windows") {
           sendToStream({ type: "status", text: `Converting ${platform} PE to shellcode…` });
-          sendToStream({ type: "output", text: `\nConverting PE → shellcode with Donut...\n`, level: "info" });
+          sendToStream({ type: "output", text: `\nConverting PE → shellcode with Cupcake...\n`, level: "info" });
           const scOutputName = deps.sanitizeOutputName(outputName.replace(/\.[^.]+$/, ".bin"));
           const binPath = path.join(outDir, scOutputName);
-          const donutArch = (actualArch === "386" ? "386" : "amd64") as "386" | "amd64";
+          const cupcakeArch = (actualArch === "386" ? "386" : "amd64") as "386" | "amd64";
           await runBuildHooks(
             deps.runBuildHookForAll,
-            "before_donut",
+            "before_cupcake",
             buildTransformHookPayload({
               buildId,
-              stage: "before_donut",
+              stage: "before_cupcake",
               platform,
               os,
               arch: actualArch,
@@ -2152,29 +2152,29 @@ func runBoundFiles() {
               filePath,
               size: finalOutputSize,
               config,
-              extra: { outputFilename: scOutputName, outputPath: binPath, donutArch },
+              extra: { outputFilename: scOutputName, outputPath: binPath, cupcakeArch },
             }),
             sendToStream,
           );
-          const ok = await runDonut(filePath, binPath, donutArch, sendToStream, {
-            singleThreaded: config.donutSingleThreaded,
-            exitMode: config.donutExitMode,
-            entropy: config.donutEntropy,
-            preserveHeaders: config.donutPreserveHeaders,
-            resumeOffset: config.donutResumeOffset,
+          const ok = await runCupcake(filePath, binPath, cupcakeArch, sendToStream, {
+            singleThreaded: config.cupcakeSingleThreaded,
+            exitMode: config.cupcakeExitMode,
+            entropy: config.cupcakeEntropy,
+            preserveHeaders: config.cupcakePreserveHeaders,
+            resumeOffset: config.cupcakeResumeOffset,
           });
-          if (!ok) throw new Error(`Donut shellcode conversion failed for ${platform}`);
+          if (!ok) throw new Error(`Cupcake shellcode conversion failed for ${platform}`);
           try { fs.unlinkSync(filePath); } catch {}
           finalOutputName = scOutputName;
           finalOutputSize = Bun.file(binPath).size;
           shellcodeBinPath = binPath;
-          shellcodeArch = donutArch;
+          shellcodeArch = cupcakeArch;
           await runBuildHooks(
             deps.runBuildHookForAll,
-            "after_donut",
+            "after_cupcake",
             buildTransformHookPayload({
               buildId,
-              stage: "after_donut",
+              stage: "after_cupcake",
               platform,
               os,
               arch: actualArch,
@@ -2185,7 +2185,7 @@ func runBoundFiles() {
               filePath: binPath,
               size: finalOutputSize,
               config,
-              extra: { inputFilename: outputName, donutArch },
+              extra: { inputFilename: outputName, cupcakeArch },
             }),
             sendToStream,
           );

@@ -59,18 +59,15 @@ RUN wget -q "https://sh.rustup.rs" -O rustup-init.sh \
     && rm -f rustup-init.sh
 ENV PATH="/usr/local/cargo/bin:${PATH}"
 
-# Pre-fetch the latest Donut shellcode converter binary.
-# The runtime donut-manager will re-check GitHub and update automatically;
-# this step just ensures a working binary is available offline / on first use.
-RUN DONUT_TAG=$(curl -sSf "https://api.github.com/repos/TheWover/donut/releases/latest" \
-        | grep '"tag_name"' | head -1 | cut -d'"' -f4) \
-    && ARCHIVE_URL="https://github.com/TheWover/donut/releases/download/${DONUT_TAG}/donut_${DONUT_TAG}.tar.gz" \
-    && if curl -sSfL "${ARCHIVE_URL}" | tar xzf - --strip-components=0 -C /usr/local/bin ./donut 2>/dev/null; then \
-        chmod +x /usr/local/bin/donut; \
-        echo "Donut ${DONUT_TAG} pre-installed from archive"; \
-    else \
-        echo "WARNING: Donut pre-fetch failed — will fall back to system PATH or download on first use"; \
-    fi
+# Compile the Cupcake shellcode converter (maintained donut fork, vendored in
+# cupcake/) from the bundled source. The runtime cupcake-manager prefers a
+# system binary and recompiles from the vendored source as fallback; this step
+# just guarantees a working binary is available offline on first use.
+COPY cupcake/ ./cupcake/
+RUN (cd cupcake && gcc -Wunused-function -Wall -fpack-struct=8 -DDONUT_EXE -I include donut.c hash.c encrypt.c format.c loader/clib.c lib/aplib64.a -o /usr/local/bin/cupcake) \
+    && chmod +x /usr/local/bin/cupcake \
+    && echo "Cupcake compiled from vendored source" \
+    || echo "WARNING: Cupcake build failed — will compile at runtime from vendored cupcake/ source if gcc is available"
 
 # Pre-fetch the latest Rust SGN (Shikata Ga Nai) binary. The Rust releases use
 # target-triple tarballs instead of the legacy sgn_linux_amd64_*.zip naming.
@@ -164,6 +161,9 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 # Reuse Go + garble from the builder so we don't re-download.
 COPY --from=builder /usr/local/go /usr/local/go
 COPY --from=builder /go/bin/garble /go/bin/garble
+
+# Cupcake shellcode converter compiled from the vendored source (see above).
+COPY --from=builder /usr/local/bin/cupcake /usr/local/bin/cupcake
 
 ENV PATH="/usr/local/go/bin:/go/bin:${PATH}"
 ENV GOPATH="/app/client-build-cache/go"

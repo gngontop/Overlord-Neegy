@@ -233,12 +233,12 @@ export async function handleBuildRoutes(
         sleepSeconds,
         boundFiles,
         iosBundleId,
-        useDonut,
-        donutSingleThreaded,
-        donutExitMode,
-        donutEntropy,
-        donutPreserveHeaders,
-        donutResumeOffset,
+        useCupcake,
+        cupcakeSingleThreaded,
+        cupcakeExitMode,
+        cupcakeEntropy,
+        cupcakePreserveHeaders,
+        cupcakeResumeOffset,
         useLinuxShellcode,
         shellcodeConsole,
         useSgn,
@@ -482,12 +482,12 @@ export async function handleBuildRoutes(
       const needsMacosSdk = !safeBuildProvider && hasDarwinTarget && !disableCgo && process.platform === "linux";
       if (safeOutputSgnTxt) {
         const hasSgnCapableTarget = allowedPlatforms.some((p) =>
-          (!!useDonut && p.startsWith("windows-")) ||
+          (!!useCupcake && p.startsWith("windows-")) ||
           (!!useLinuxShellcode && p === "linux-amd64")
         );
         if (!hasSgnCapableTarget) {
           return Response.json(
-            { error: "SGN TXT output requires Donut on Windows or Linux Shellcode on linux-amd64" },
+            { error: "SGN TXT output requires Cupcake on Windows or Linux Shellcode on linux-amd64" },
             { status: 400 },
           );
         }
@@ -599,12 +599,12 @@ export async function handleBuildRoutes(
         sleepSeconds: safeSleepSeconds,
         boundFiles: safeBoundFiles,
         iosBundleId: typeof iosBundleId === "string" && /^[a-zA-Z0-9.-]{1,128}$/.test(iosBundleId.trim()) ? iosBundleId.trim() : undefined,
-        useDonut: !!useDonut,
-        donutSingleThreaded: !!donutSingleThreaded,
-        donutExitMode: (donutExitMode === 1 || donutExitMode === 2 || donutExitMode === 3) ? donutExitMode : undefined,
-        donutEntropy: (donutEntropy === 1 || donutEntropy === 2 || donutEntropy === 3) ? donutEntropy : undefined,
-        donutPreserveHeaders: !!donutPreserveHeaders,
-        donutResumeOffset: typeof donutResumeOffset === "number" && Number.isFinite(donutResumeOffset) && donutResumeOffset > 0 ? donutResumeOffset : undefined,
+        useCupcake: !!useCupcake,
+        cupcakeSingleThreaded: !!cupcakeSingleThreaded,
+        cupcakeExitMode: (cupcakeExitMode === 1 || cupcakeExitMode === 2 || cupcakeExitMode === 3) ? cupcakeExitMode : undefined,
+        cupcakeEntropy: (cupcakeEntropy === 1 || cupcakeEntropy === 2 || cupcakeEntropy === 3) ? cupcakeEntropy : undefined,
+        cupcakePreserveHeaders: !!cupcakePreserveHeaders,
+        cupcakeResumeOffset: typeof cupcakeResumeOffset === "number" && Number.isFinite(cupcakeResumeOffset) && cupcakeResumeOffset > 0 ? cupcakeResumeOffset : undefined,
         useLinuxShellcode: !!useLinuxShellcode,
         shellcodeConsole: !!shellcodeConsole,
         useSgn: !!useSgn,

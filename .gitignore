@@ -532,3 +532,8 @@ plugins/plink-static/*
 
 Overlord-Client/third_party/amf
 Overlord-Client/third_party/onevpl
+
+# Vendored Cupcake source (maintained donut fork). Compiled into the Docker
+# image and used by Overlord-Server/src/server/cupcake-manager.ts. Bypass the
+# *.exe / *.lib / *.dll rules so the whole vendored tree ships intact.
+!cupcake/**

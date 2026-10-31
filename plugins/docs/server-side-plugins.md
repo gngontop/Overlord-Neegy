@@ -145,11 +145,11 @@ export default {
   },
 
   buildHooks: {
-    before_donut(ctx, payload) {
-      ctx.log.info(`Donut input: ${payload.file.filename}`);
+    before_cupcake(ctx, payload) {
+      ctx.log.info(`Cupcake input: ${payload.file.filename}`);
     },
-    after_donut(ctx, payload) {
-      ctx.log.info(`Donut output: ${payload.file.filename}`);
+    after_cupcake(ctx, payload) {
+      ctx.log.info(`Cupcake output: ${payload.file.filename}`);
     },
     before_sgn(ctx, payload) {
       ctx.log.info(`SGN iterations: ${payload.iterations}`);
@@ -189,7 +189,7 @@ export default {
 
 ## Transform Hook Stages
 
-Implement transform hooks either in `buildHooks` with the snake-case name, or as a named method such as `onBuildBeforeDonut`.
+Implement transform hooks either in `buildHooks` with the snake-case name, or as a named method such as `onBuildBeforeCupcake`.
 
 | Hook | Named method | When it runs |
 |------|--------------|--------------|
@@ -197,7 +197,7 @@ Implement transform hooks either in `buildHooks` with the snake-case name, or as
 | `before_upx` / `after_upx` | `onBuildBeforeUpx` / `onBuildAfterUpx` | Around UPX compression. |
 | `before_script_wrapper` / `after_script_wrapper` | `onBuildBeforeScriptWrapper` / `onBuildAfterScriptWrapper` | Around `.bat`, `.cmd`, and `.ps1` wrapping. |
 | `before_ipa` / `after_ipa` | `onBuildBeforeIpa` / `onBuildAfterIpa` | Around iOS IPA packaging. |
-| `before_donut` / `after_donut` | `onBuildBeforeDonut` / `onBuildAfterDonut` | Around Windows PE to shellcode conversion with Donut. |
+| `before_cupcake` / `after_cupcake` | `onBuildBeforeCupcake` / `onBuildAfterCupcake` | Around Windows PE to shellcode conversion with Cupcake. |
 | `before_linux_shellcode` / `after_linux_shellcode` | `onBuildBeforeLinuxShellcode` / `onBuildAfterLinuxShellcode` | Around Linux ELF shellcode wrapping. |
 | `before_sgn` / `after_sgn` | `onBuildBeforeSgn` / `onBuildAfterSgn` | Around SGN shellcode encoding. |
 | `before_sgn_txt` / `after_sgn_txt` | `onBuildBeforeSgnTxt` / `onBuildAfterSgnTxt` | Around SGN TXT artifact conversion. |
@@ -212,7 +212,7 @@ Transform hook payloads include:
 | `config` | Full build config, including selected build plugins. |
 | `file` | `{ filename, path, platform, size }` for the current artifact. |
 
-Some stages include extra fields such as `outputFilename`, `outputPath`, `donutArch`, `shellcodeArch`, or `iterations`.
+Some stages include extra fields such as `outputFilename`, `outputPath`, `cupcakeArch`, `shellcodeArch`, or `iterations`.
 
 ## Artifact Replacement And Uploads
 
@@ -264,7 +264,7 @@ Declare builder UI in `config.json`:
         "id": "shellcode-release",
         "label": "Shellcode Release",
         "icon": "fa-solid fa-fire",
-        "setBuild": { "useDonut": true, "useSgn": true },
+        "setBuild": { "useCupcake": true, "useSgn": true },
         "setSettings": { "publish": true }
       }
     ],
@@ -291,7 +291,7 @@ Buttons in `build.actions` can set core builder fields through `setBuild` and pl
 
 | Requirement field | Meaning |
 |-------------------|---------|
-| `field` | Core build field such as `useSgn` or `useDonut`. |
+| `field` | Core build field such as `useSgn` or `useCupcake`. |
 | `pluginSetting` | Setting from this plugin's build settings. |
 | `platforms` | Selected build platforms. |
 

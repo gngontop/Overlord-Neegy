@@ -6,7 +6,7 @@ It demonstrates:
 
 - `onBuildPrepare` and `onBuildTarget` for observing build state.
 - `buildHooks.post_build` for seeing the raw Go build output.
-- `buildHooks.before_donut` and `buildHooks.after_donut` for Donut shellcode conversion.
+- `buildHooks.before_cupcake` and `buildHooks.after_cupcake` for Cupcake shellcode conversion.
 - `buildHooks.before_sgn` and `buildHooks.after_sgn` for SGN shellcode encoding.
 - `onBuildArtifact` for replacing the downloadable output with a `.txt` file containing `test`.
 - A custom Build Plugins button named `Build Test TXT`.

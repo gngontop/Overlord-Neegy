@@ -75,28 +75,28 @@ export default {
       });
     },
 
-    before_donut(ctx, payload) {
+    before_cupcake(ctx, payload) {
       if (!buildSettings(ctx, payload).enabled) return null;
-      record(ctx, "before_donut", {
+      record(ctx, "before_cupcake", {
         buildId: payload.buildId,
         platform: payload.platform,
         input: payload.file?.filename,
         output: payload.outputFilename,
-        donutArch: payload.donutArch,
+        cupcakeArch: payload.cupcakeArch,
       });
-      return { message: `before Donut: ${payload.file?.filename}` };
+      return { message: `before Cupcake: ${payload.file?.filename}` };
     },
 
-    after_donut(ctx, payload) {
+    after_cupcake(ctx, payload) {
       if (!buildSettings(ctx, payload).enabled) return null;
-      record(ctx, "after_donut", {
+      record(ctx, "after_cupcake", {
         buildId: payload.buildId,
         platform: payload.platform,
         filename: payload.file?.filename,
         size: payload.file?.size,
-        donutArch: payload.donutArch,
+        cupcakeArch: payload.cupcakeArch,
       });
-      return { message: `after Donut: ${payload.file?.filename}` };
+      return { message: `after Cupcake: ${payload.file?.filename}` };
     },
 
     before_sgn(ctx, payload) {

@@ -22,8 +22,8 @@ type PluginExports = {
   onBuildAfterScriptWrapper?: (ctx: PluginContext, payload: unknown) => unknown | Promise<unknown>;
   onBuildBeforeIpa?: (ctx: PluginContext, payload: unknown) => unknown | Promise<unknown>;
   onBuildAfterIpa?: (ctx: PluginContext, payload: unknown) => unknown | Promise<unknown>;
-  onBuildBeforeDonut?: (ctx: PluginContext, payload: unknown) => unknown | Promise<unknown>;
-  onBuildAfterDonut?: (ctx: PluginContext, payload: unknown) => unknown | Promise<unknown>;
+  onBuildBeforeCupcake?: (ctx: PluginContext, payload: unknown) => unknown | Promise<unknown>;
+  onBuildAfterCupcake?: (ctx: PluginContext, payload: unknown) => unknown | Promise<unknown>;
   onBuildBeforeLinuxShellcode?: (ctx: PluginContext, payload: unknown) => unknown | Promise<unknown>;
   onBuildAfterLinuxShellcode?: (ctx: PluginContext, payload: unknown) => unknown | Promise<unknown>;
   onBuildBeforeSgn?: (ctx: PluginContext, payload: unknown) => unknown | Promise<unknown>;
@@ -165,8 +165,8 @@ self.onmessage = async (e: MessageEvent<WorkerInbound>) => {
       (msg.hook === "after_script_wrapper" ? plugin.onBuildAfterScriptWrapper : undefined) ||
       (msg.hook === "before_ipa" ? plugin.onBuildBeforeIpa : undefined) ||
       (msg.hook === "after_ipa" ? plugin.onBuildAfterIpa : undefined) ||
-      (msg.hook === "before_donut" ? plugin.onBuildBeforeDonut : undefined) ||
-      (msg.hook === "after_donut" ? plugin.onBuildAfterDonut : undefined) ||
+      (msg.hook === "before_cupcake" ? plugin.onBuildBeforeCupcake : undefined) ||
+      (msg.hook === "after_cupcake" ? plugin.onBuildAfterCupcake : undefined) ||
       (msg.hook === "before_linux_shellcode" ? plugin.onBuildBeforeLinuxShellcode : undefined) ||
       (msg.hook === "after_linux_shellcode" ? plugin.onBuildAfterLinuxShellcode : undefined) ||
       (msg.hook === "before_sgn" ? plugin.onBuildBeforeSgn : undefined) ||
