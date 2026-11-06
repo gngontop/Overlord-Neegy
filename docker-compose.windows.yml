@@ -1,6 +1,8 @@
+# Neegy fork: Docker Desktop builds the server image locally from this repo.
+# Run `docker compose -f docker-compose.windows.yml up -d --build`.
 services:
   overlord-server:
-    image: ${DOCKER_IMAGE:-ghcr.io/doesntbreaktos/overlord:latest}
+    image: ${DOCKER_IMAGE:-overlord-neegy:latest}
     build:
       context: .
       dockerfile: Dockerfile
@@ -97,7 +99,8 @@ services:
       start_period: 40s
 
   overlord-permissions-init:
-    image: ${DOCKER_IMAGE:-ghcr.io/doesntbreaktos/overlord:latest}
+    # Only needs a shell + chown; don't build the full Overlord image twice.
+    image: alpine:3.22
     user: "0:0"
     read_only: true
     entrypoint: ["/bin/sh", "-ec"]

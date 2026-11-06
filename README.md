@@ -1,14 +1,18 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/doesntbreaktos/Overlord/main/Overlord-Server/public/assets/overlord.png" alt="Overlord" width="280" />
+  <img src="https://raw.githubusercontent.com/gngontop/Overlord-Neegy/main/Overlord-Server/public/assets/overlord.png" alt="Overlord Neegy" width="280" />
 </p>
 
-# Overlord
+# Overlord — Neegy Fork
 
 # [TELEGRAM SERVER JOIN NOW NO EXCUSES WE GIVE SUPPORT AND IT'S FUN](https://t.me/Onimai)
 
 Hello, I made this project for fun.
 
-The canonical repository is [GitHub](https://github.com/doesntbreaktos/Overlord); [GitLab](https://gitlab.com/vxaboveground/overlord) is maintained only as a source mirror.
+This is the **Neegy fork** of Overlord: [gngontop/Overlord-Neegy](https://github.com/gngontop/Overlord-Neegy).
+The upstream project is [doesntbreaktos/Overlord](https://github.com/doesntbreaktos/Overlord).
+The fork keeps the same server/client architecture and wire protocol, and adds the
+Cupcake shellcode pipeline, hardened loader/ETW behavior, and Backstage browser
+injection fixes described below.
 
 The server is TypeScript on Node/Bun. The client is Go. Operators talk to the server through a web panel or the Electron desktop app, and agents connect over encrypted WebSockets.
 
@@ -21,8 +25,33 @@ bare-metal installation is strongly recommended instead of Docker Desktop.
 > deployment. Report vulnerabilities privately according to the
 > [Security Policy](SECURITY.md).
 
+## Fork Highlights
+
+This fork focuses on the Windows agent’s shellcode and Backstage/HVNC paths:
+
+- **Cupcake instead of Donut.** The vendored [`cupcake/`](cupcake/) source is
+  built into the server image and used for Windows PE → PIC conversion. The
+  generator is also built from source at runtime when a system binary is not
+  available.
+- **Hardened Cupcake loader.** Exact byte patches instead of copied C stub
+  functions, bounded AMSI/WLDP scans, safe DLL-name resolution, sensitive
+  instance/key/flag wiping, and regenerated x86/x64 loader stubs.
+- **Patchless ETW bypass.** The default ETW path uses a VEH plus execute
+  hardware breakpoints on `NtTraceEvent` (with `EtwEventWrite` as a fallback),
+  so ntdll is not modified when debug registers are available. A minimal inline
+  syscall-stub patch remains as a compatibility fallback.
+- **Backstage browser injection fixes.** Browser executables are quoted for
+  `CreateProcessW` (paths such as `C:\Program Files\...` now launch correctly),
+  Chromium/Firefox arguments are handled per-browser, Chromium handoff exit
+  codes are reported correctly, and the shared DLL section stays alive for
+  renderer/GPU child processes.
+- **Reflective loader alignment fix.** The Rust Backstage DLL uses byte-wise
+  volatile PE reads/writes, avoiding unaligned-access aborts and undefined
+  behavior on x86/x64.
+
 ---
 
+- [Fork Highlights](#fork-highlights)
 - [Platform Recommendation](#platform-recommendation)
 - [Docker Quick Start (Recommended on Linux)](#docker-quick-start-recommended-on-linux)
   - [Windows (not recommended)](#windows-not-recommended)
@@ -66,6 +95,11 @@ provided for compatibility and local testing; Windows users should prefer a
 native installation or move the server to Linux.
 
 > Windows and macOS use `docker-compose.windows.yml`. Linux uses the default `docker-compose.yml` (host networking).
+>
+> This fork builds the server image locally by default (`overlord-neegy:latest`)
+> because the fork does not depend on an upstream GHCR image. Use
+> `docker compose up -d --build` after cloning. If you publish the fork image
+> yourself, set `DOCKER_IMAGE=ghcr.io/gngontop/overlord-neegy:latest`.
 
 After the first start, open `https://localhost:5173`. The default username is
 `admin`. Unless you set `OVERLORD_PASS`, first startup generates a one-time
@@ -121,14 +155,14 @@ docker compose version
 **2. Get the project**
 
 ```powershell
-git clone https://github.com/doesntbreaktos/Overlord.git
-cd Overlord
+git clone https://github.com/gngontop/Overlord-Neegy.git
+cd Overlord-Neegy
 ```
 
 **3. Start it**
 
 ```powershell
-docker compose -f docker-compose.windows.yml up -d
+docker compose -f docker-compose.windows.yml up -d --build
 ```
 
 **4. Get the initial password**
@@ -151,8 +185,9 @@ https://localhost:5173
 **6. Update later**
 
 ```powershell
+git pull
 docker compose -f docker-compose.windows.yml down
-docker compose -f docker-compose.windows.yml pull
+docker compose -f docker-compose.windows.yml build
 docker compose -f docker-compose.windows.yml up -d
 ```
 
@@ -213,37 +248,39 @@ Make sure the daemon is running:
 sudo systemctl status docker
 ```
 
-**2. Grab the compose file**
+**2. Clone the fork**
 
-Make a folder for it, drop in the file, and you're done:
-
-```bash
-mkdir overlord && cd overlord
-wget https://raw.githubusercontent.com/doesntbreaktos/Overlord/main/docker-compose.yml
-```
-
-No `wget`? Use `curl`:
+The fork vendors `cupcake/` and builds the server image locally, so clone the
+repository instead of downloading a single compose file:
 
 ```bash
-mkdir overlord && cd overlord
-curl -O https://raw.githubusercontent.com/doesntbreaktos/Overlord/main/docker-compose.yml
+git clone https://github.com/gngontop/Overlord-Neegy.git
+cd Overlord-Neegy
 ```
 
 **3. Start it**
 
 ```bash
-docker compose up -d
+docker compose up -d --build
 ```
 
-The Compose file itself is downloaded from the canonical GitHub repository,
-and the default image is pulled from GitHub Container Registry at
-`ghcr.io/doesntbreaktos/overlord:latest`.
+The default Compose file builds `overlord-neegy:latest` from the fork’s
+`Dockerfile` and uses it for the server. The one-shot permissions-init service
+uses `alpine:3.22` because it only needs `chown`. This is deliberate: the fork
+does not assume an upstream `ghcr.io/doesntbreaktos/overlord` image exists.
+
+If you publish this fork to GitHub Container Registry, set the image tag and
+Compose will use it instead of the local tag:
+
+```bash
+DOCKER_IMAGE=ghcr.io/gngontop/overlord-neegy:latest docker compose up -d
+```
 
 Maintainers can publish a matching multi-architecture GHCR image from the
-[overlord-ci workflow](https://github.com/doesntbreaktos/Overlord/actions/workflows/docker-publish.yml).
+[overlord-ci workflow](https://github.com/gngontop/Overlord-Neegy/actions/workflows/docker-publish.yml).
 Select **Run workflow** and enter the version currently declared by the server
 and agent (for example, `3.1.0`). The workflow publishes version, major/minor,
-major, and `latest` tags to `ghcr.io/doesntbreaktos/overlord`. Keep the package
+major, and `latest` tags to `ghcr.io/gngontop/overlord-neegy`. Keep the package
 visibility public so Compose can pull it without GitHub authentication.
 
 **4. Get the initial password**
@@ -272,8 +309,9 @@ https://IP:5173
 From the same folder:
 
 ```bash
+git pull
 docker compose down
-docker compose pull
+docker compose build
 docker compose up -d
 ```
 
@@ -315,8 +353,8 @@ docker compose version
 **2. Get the project**
 
 ```bash
-git clone https://github.com/doesntbreaktos/Overlord.git
-cd Overlord
+git clone https://github.com/gngontop/Overlord-Neegy.git
+cd Overlord-Neegy
 ```
 
 **3. Start it**
@@ -324,7 +362,7 @@ cd Overlord
 macOS uses the same compose file as Windows:
 
 ```bash
-docker compose -f docker-compose.windows.yml up -d
+docker compose -f docker-compose.windows.yml up -d --build
 ```
 
 **4. Get the initial password**
@@ -347,8 +385,9 @@ https://localhost:5173
 **6. Update later**
 
 ```bash
+git pull
 docker compose -f docker-compose.windows.yml down
-docker compose -f docker-compose.windows.yml pull
+docker compose -f docker-compose.windows.yml build
 docker compose -f docker-compose.windows.yml up -d
 ```
 

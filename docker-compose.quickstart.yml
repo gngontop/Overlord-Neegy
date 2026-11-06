@@ -1,6 +1,8 @@
+# Neegy fork quickstart/compose-only variant. It still builds from the local
+# repository, so keep this file next to the cloned source.
 services:
   overlord-server:
-    image: ghcr.io/doesntbreaktos/overlord:latest
+    image: ${DOCKER_IMAGE:-overlord-neegy:latest}
     build:
       context: .
       dockerfile: Dockerfile
@@ -88,7 +90,8 @@ services:
         condition: service_completed_successfully
 
   overlord-permissions-init:
-    image: ghcr.io/doesntbreaktos/overlord:latest
+    # Only needs a shell + chown; don't build the full Overlord image twice.
+    image: alpine:3.22
     user: "0:0"
     read_only: true
     entrypoint: ["/bin/sh", "-ec"]

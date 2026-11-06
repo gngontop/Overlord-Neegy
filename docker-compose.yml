@@ -1,6 +1,10 @@
+# Neegy fork: the server image is built locally from this repository.
+# Run `docker compose up -d --build` after cloning. Set DOCKER_IMAGE to a
+# published fork image (for example ghcr.io/gngontop/overlord-neegy:latest)
+# if you prefer pulling instead of building.
 services:
   overlord-server:
-    image: ${DOCKER_IMAGE:-ghcr.io/doesntbreaktos/overlord:latest}
+    image: ${DOCKER_IMAGE:-overlord-neegy:latest}
     build:
       context: .
       dockerfile: Dockerfile
@@ -100,7 +104,8 @@ services:
         condition: service_completed_successfully
 
   overlord-permissions-init:
-    image: ${DOCKER_IMAGE:-ghcr.io/doesntbreaktos/overlord:latest}
+    # Only needs a shell + chown; don't build the full Overlord image twice.
+    image: alpine:3.22
     user: "0:0"
     read_only: true
     entrypoint: ["/bin/sh", "-ec"]
