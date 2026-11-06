@@ -234,6 +234,7 @@ export async function handleBuildRoutes(
         boundFiles,
         iosBundleId,
         useCupcake,
+        useFritter,
         cupcakeSingleThreaded,
         cupcakeExitMode,
         cupcakeEntropy,
@@ -483,7 +484,7 @@ export async function handleBuildRoutes(
       const needsMacosSdk = !safeBuildProvider && hasDarwinTarget && !disableCgo && process.platform === "linux";
       if (safeOutputSgnTxt) {
         const hasSgnCapableTarget = allowedPlatforms.some((p) =>
-          (!!useCupcake && p.startsWith("windows-")) ||
+          ((!!useCupcake || !!useFritter) && p.startsWith("windows-")) ||
           (!!useLinuxShellcode && p === "linux-amd64")
         );
         if (!hasSgnCapableTarget) {
@@ -496,15 +497,21 @@ export async function handleBuildRoutes(
       // Cupcake (like donut) only emits x86/x64 loader stubs — converting a
       // windows-arm64 agent would silently produce amd64 shellcode that cannot
       // execute on the target.
-      if (useCupcake) {
-        const unsupportedCupcakeTargets = allowedPlatforms.filter(
-          (p) => p.startsWith("windows-") && p !== "windows-386" && p !== "windows-amd64",
+      if (useCupcake || useFritter) {
+        const unsupportedShellcodeTargets = allowedPlatforms.filter(
+          (p) => p.startsWith("windows-") && p !== "windows-amd64" && (!useFritter && p !== "windows-386"),
         );
-        if (unsupportedCupcakeTargets.length > 0) {
+        if (unsupportedShellcodeTargets.length > 0) {
           return Response.json(
             {
-              error: `Cupcake shellcode conversion supports windows-386 and windows-amd64 only (requested: ${unsupportedCupcakeTargets.join(", ")})`,
+              error: `${useFritter ? "Fritter supports windows-amd64 only" : "Cupcake shellcode conversion supports windows-386 and windows-amd64 only"} (requested: ${unsupportedShellcodeTargets.join(", ")})`,
             },
+            { status: 400 },
+          );
+        }
+        if (useFritter && allowedPlatforms.some((p) => p === "windows-386")) {
+          return Response.json(
+            { error: "Fritter supports windows-amd64 only; use Cupcake for windows-386" },
             { status: 400 },
           );
         }
@@ -617,6 +624,7 @@ export async function handleBuildRoutes(
         boundFiles: safeBoundFiles,
         iosBundleId: typeof iosBundleId === "string" && /^[a-zA-Z0-9.-]{1,128}$/.test(iosBundleId.trim()) ? iosBundleId.trim() : undefined,
         useCupcake: !!useCupcake,
+        useFritter: !!useFritter,
         cupcakeSingleThreaded: !!cupcakeSingleThreaded,
         cupcakeExitMode: (cupcakeExitMode === 1 || cupcakeExitMode === 2 || cupcakeExitMode === 3) ? cupcakeExitMode : undefined,
         cupcakeEntropy: (cupcakeEntropy === 1 || cupcakeEntropy === 2 || cupcakeEntropy === 3) ? cupcakeEntropy : undefined,

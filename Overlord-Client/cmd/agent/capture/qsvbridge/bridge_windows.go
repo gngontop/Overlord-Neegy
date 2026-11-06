@@ -6,7 +6,7 @@ package qsvbridge
 #cgo CXXFLAGS: -std=c++17
 #cgo LDFLAGS: -static -static-libgcc -static-libstdc++ -lole32 -ld3d11 -ldxgi
 #include <stdlib.h>
-#include "bridge_windows.h"
+#include "qsv_bridge.h"
 */
 import "C"
 

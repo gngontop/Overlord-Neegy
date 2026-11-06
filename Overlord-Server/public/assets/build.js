@@ -552,6 +552,21 @@ buildProviderSelect?.addEventListener("change", () => {
 });
 
 function setBuildField(field, value) {
+  if (field === "useFritter") {
+    const el = document.getElementById("shellcode-generator");
+    if (!el) return;
+    el.value = value ? "fritter" : "cupcake";
+    if (value) {
+      const shellcodeToggle = document.getElementById("cupcake-mode");
+      if (shellcodeToggle && !shellcodeToggle.checked) {
+        shellcodeToggle.disabled = false;
+        shellcodeToggle.checked = true;
+        shellcodeToggle.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+    }
+    el.dispatchEvent(new Event("change", { bubbles: true }));
+    return;
+  }
   const fieldMap = {
     buildProvider: "#build-provider",
     useCupcake: "#cupcake-mode",
@@ -888,6 +903,7 @@ function collectFormSettings() {
     outputExtension: document.getElementById("output-extension")?.value ?? ".exe",
     cryptableMode: document.getElementById("cryptable-mode")?.checked ?? false,
     useCupcake: document.getElementById("cupcake-mode")?.checked ?? false,
+    useFritter: (document.getElementById("cupcake-mode")?.checked ?? false) && document.getElementById("shellcode-generator")?.value === "fritter",
     cupcakeSingleThreaded: document.getElementById("cupcake-single-threaded")?.checked ?? false,
     cupcakeExitMode: parseInt(document.getElementById("cupcake-exit-mode")?.value, 10) || undefined,
     cupcakeEntropy: parseInt(document.getElementById("cupcake-entropy")?.value, 10) || undefined,
@@ -984,6 +1000,10 @@ function applyFormSettings(settings) {
   if (cupcakeMode !== undefined) {
     setCb("#cupcake-mode", cupcakeMode);
     if (cupcakeMode) applyCupcakeMode(true);
+  }
+  if (settings.useFritter !== undefined) {
+    setVal("shellcode-generator", settings.useFritter ? "fritter" : "cupcake");
+    applyShellcodeGeneratorMode();
   }
   if (cupcakeSingleThreaded !== undefined) setCb("#cupcake-single-threaded", cupcakeSingleThreaded);
   if (cupcakeExitMode !== undefined) setVal("cupcake-exit-mode", cupcakeExitMode);
@@ -1224,6 +1244,7 @@ function updateShellcodeCheckboxVisibility() {
   const linuxScRow = document.getElementById("linux-sc-row");
   if (linuxScRow) linuxScRow.classList.toggle("hidden", !hasLinuxAmd64);
 
+  applyShellcodeGeneratorMode();
   applyCryptableShellcodeGate();
 
   // SGN is only meaningful when there's shellcode to encode — i.e. Cupcake or
@@ -1257,8 +1278,20 @@ function applyCupcakeMode(enabled) {
     const nonWinWarn = document.getElementById("cupcake-nonwin-warn");
     if (nonWinWarn) nonWinWarn.classList.toggle("hidden", !hasNonWindows);
   }
+  applyShellcodeGeneratorMode();
 
   saveFormSettings();
+}
+
+function applyShellcodeGeneratorMode() {
+  const fritter = document.getElementById("shellcode-generator")?.value === "fritter";
+  document.getElementById("cupcake-bypass-row")?.classList.toggle("hidden", fritter);
+  document.getElementById("cupcake-bypass-help")?.classList.toggle("hidden", fritter);
+  const selected = Array.from(document.querySelectorAll('input[name="platform"]:checked')).map((el) => el.value);
+  const fritterArchWarn = document.getElementById("fritter-arch-warn");
+  if (fritterArchWarn) fritterArchWarn.classList.toggle("hidden", !(fritter && selected.includes("windows-386")));
+  const sgnFritterHint = document.getElementById("sgn-fritter-hint");
+  if (sgnFritterHint) sgnFritterHint.classList.toggle("hidden", !fritter);
 }
 
 function applyLinuxShellcodeMode(enabled) {
@@ -1556,6 +1589,14 @@ if (linuxScCheckbox) {
 
 if (cupcakeCheckbox) {
   cupcakeCheckbox.addEventListener("change", () => updateShellcodeCheckboxVisibility());
+}
+
+const shellcodeGeneratorSelect = document.getElementById("shellcode-generator");
+if (shellcodeGeneratorSelect) {
+  shellcodeGeneratorSelect.addEventListener("change", () => {
+    applyShellcodeGeneratorMode();
+    saveFormSettings();
+  });
 }
 
 const sgnCheckbox = document.getElementById("sgn-mode");
@@ -2273,6 +2314,7 @@ form?.addEventListener("submit", async (e) => {
       : undefined,
     iosBundleId: platforms.some(p => p.startsWith('ios-')) ? (form.querySelector("#ios-bundle-id")?.value.trim() || undefined) : undefined,
     useCupcake: document.getElementById("cupcake-mode")?.checked || false,
+    useFritter: (document.getElementById("cupcake-mode")?.checked ?? false) && document.getElementById("shellcode-generator")?.value === "fritter",
     cupcakeSingleThreaded: document.getElementById("cupcake-single-threaded")?.checked || false,
     cupcakeExitMode: parseInt(document.getElementById("cupcake-exit-mode")?.value, 10) || undefined,
     cupcakeEntropy: parseInt(document.getElementById("cupcake-entropy")?.value, 10) || undefined,

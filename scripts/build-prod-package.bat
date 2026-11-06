@@ -73,6 +73,8 @@ echo [7/11] Exporting Overlord-Client source for runtime builds...
 robocopy "%CLIENT_SRC%" "%RELEASE_DIR%\Overlord-Client" /E /XD build .git .vscode >nul
 if errorlevel 8 goto :robocopy_err
 robocopy "%ROOT%protocol" "%RELEASE_DIR%\protocol" /E >nul
+robocopy "%ROOT%fritter" "%RELEASE_DIR%\fritter" /E /XD .git .fritter-build dist >nul
+if errorlevel 8 goto :robocopy_err
 if errorlevel 8 goto :robocopy_err
 
 echo [8/11] Exporting Rust agent sources and builder plugins...

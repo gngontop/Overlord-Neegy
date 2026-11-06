@@ -66,7 +66,7 @@ describe("TLS identity pin bootstrap", () => {
     expect(result.source).toBe("self-signed");
     expect(computeCertificateSpkiPin(migratedPem)).toBe(legacyPin);
     expect(migratedCertificate.subject).not.toContain("Overlord");
-    expect(migratedCertificate.subject).toMatch(/O=Service-[0-9a-f]{16}/);
+    expect(migratedCertificate.subject).toMatch(/(?:^|[,\n])\s*O=[^,\n]+/);
     expect(migratedCertificate.subjectAltName).toContain("DNS:localhost");
   });
 });

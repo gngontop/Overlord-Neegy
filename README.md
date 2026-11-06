@@ -35,6 +35,11 @@ This fork focuses on the Windows agents’ shellcode, hidden-desktop, and HVNC p
   built into the server image and used for Windows PE → PIC conversion. The
   generator is also built from source at runtime when a system binary is not
   available.
+- **Fritter shellcode fallback.** The Build page can emit Windows x64
+  shellcode with the vendored [`fritter/`](fritter/) generator instead of
+  Cupcake. Fritter rebuilds its loader constants per build and randomizes each
+  output; when Cupcake is quarantined by Defender the builder retries with
+  Fritter automatically. Fritter is x64-only, so `windows-386` stays on Cupcake.
 - **Hardened Cupcake loader.** Exact byte patches instead of copied C stub
   functions, bounded AMSI/WLDP scans, safe DLL-name resolution, sensitive
   instance/key/flag wiping, and regenerated x86/x64 loader stubs.

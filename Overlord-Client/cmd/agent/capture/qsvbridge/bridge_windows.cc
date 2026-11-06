@@ -1,6 +1,6 @@
 //go:build windows && cgo
 
-#include "bridge_windows.h"
+#include "qsv_bridge.h"
 #include <windows.h>
 #include <d3d10.h>
 #include <d3d11.h>
