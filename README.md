@@ -2,7 +2,7 @@
   <img src="https://raw.githubusercontent.com/gngontop/Overlord-Neegy/main/Overlord-Server/public/assets/overlord.png" alt="Overlord Neegy" width="280" />
 </p>
 
-# Overlord — Neegy Fork
+# Overlord — Neegy Fork [UNDER MAINTENANCE SOME FEATURES MAYBE NOT WORKN IDK ITS NOT DONE]
 
 # [TELEGRAM SERVER JOIN NOW NO EXCUSES WE GIVE SUPPORT AND IT'S FUN](https://t.me/Onimai)
 
