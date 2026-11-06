@@ -105,6 +105,36 @@ func TestCloneBrowserProfileProgressPanicDoesNotAbortCopy(t *testing.T) {
 	}
 }
 
+func TestQuoteWindowsExecutablePath(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		in   string
+		want string
+	}{
+		{
+			name: "program files",
+			in:   `C:\Program Files\Google\Chrome\Application\chrome.exe`,
+			want: `"C:\Program Files\Google\Chrome\Application\chrome.exe"`,
+		},
+		{
+			name: "already quoted",
+			in:   `"C:\Program Files\Mozilla Firefox\firefox.exe"`,
+			want: `"C:\Program Files\Mozilla Firefox\firefox.exe"`,
+		},
+		{
+			name: "local appdata",
+			in:   `C:\Users\tester\AppData\Local\Programs\Opera\opera.exe`,
+			want: `"C:\Users\tester\AppData\Local\Programs\Opera\opera.exe"`,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := quoteWindowsExecutablePath(tc.in); got != tc.want {
+				t.Fatalf("quoteWindowsExecutablePath(%q) = %q, want %q", tc.in, got, tc.want)
+			}
+		})
+	}
+}
+
 func TestGetProcessesLockingFileShortPathDoesNotPanic(t *testing.T) {
 	defer func() {
 		if r := recover(); r != nil {

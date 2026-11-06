@@ -864,14 +864,18 @@
                         </label>
                         <div class="flex items-center gap-2 px-3 py-1.5 rounded bg-slate-800/60 border border-slate-600/40 text-xs text-slate-300">
                           <i class="fa-solid fa-rotate-left text-slate-400"></i>
-                          <label for="cupcake-resume-offset" class="shrink-0">Resume host offset (<code>-y</code>):</label>
-                          <input type="number" id="cupcake-resume-offset" name="cupcake-resume-offset" placeholder="file offset" min="1" class="bg-slate-700 border border-slate-500 rounded px-1.5 py-0.5 text-xs text-slate-200 w-24" />
+                          <label for="cupcake-resume-offset" class="shrink-0">Resume host offset (<code>-y</code>, decimal):</label>
+                          <input type="number" id="cupcake-resume-offset" name="cupcake-resume-offset" placeholder="decimal offset" min="1" class="bg-slate-700 border border-slate-500 rounded px-1.5 py-0.5 text-xs text-slate-200 w-24" />
                         </div>
                         <div id="cupcake-nonwin-warn" class="hidden flex items-center gap-2 px-3 py-1.5 rounded bg-yellow-900/30 border border-yellow-600/40 text-xs text-yellow-300">
                           <i class="fa-solid fa-triangle-exclamation"></i>
                           <span>Non-Windows targets selected — Cupcake only applies to Windows builds; other platforms build normally</span>
                         </div>
                       </div>
+                    </div>
+                    <div id="cupcake-arm64-warn" class="hidden flex items-center gap-2 px-3 py-1.5 rounded bg-red-900/30 border border-red-600/40 text-xs text-red-300">
+                      <i class="fa-solid fa-ban"></i>
+                      <span><code>windows-arm64</code> is not supported by Cupcake (x86/x64 loader stubs only). Pick <code>windows-386</code> or <code>windows-amd64</code> to use shellcode mode.</span>
                     </div>
 
                     <div id="linux-sc-row" class="hidden flex flex-col gap-1">

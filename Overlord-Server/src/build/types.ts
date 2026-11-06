@@ -49,11 +49,11 @@ export type BuildConfig = {
   solRpcEndpoints?: string;
   iosBundleId?: string;
   useCupcake?: boolean;
-  CupcakeSingleThreaded?: boolean;
-  CupcakeExitMode?: number;
-  CupcakeEntropy?: number;
-  CupcakePreserveHeaders?: boolean;
-  CupcakeResumeOffset?: number;
+  cupcakeSingleThreaded?: boolean;
+  cupcakeExitMode?: number;
+  cupcakeEntropy?: number;
+  cupcakePreserveHeaders?: boolean;
+  cupcakeResumeOffset?: number;
   useLinuxShellcode?: boolean;
   shellcodeConsole?: boolean;
   useSgn?: boolean;

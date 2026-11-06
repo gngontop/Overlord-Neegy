@@ -67,7 +67,7 @@ COPY cupcake/ ./cupcake/
 RUN (cd cupcake && gcc -Wunused-function -Wall -fpack-struct=8 -DDONUT_EXE -I include donut.c hash.c encrypt.c format.c loader/clib.c lib/aplib64.a -o /usr/local/bin/cupcake) \
     && chmod +x /usr/local/bin/cupcake \
     && echo "Cupcake compiled from vendored source" \
-    || echo "WARNING: Cupcake build failed — will compile at runtime from vendored cupcake/ source if gcc is available"
+    || echo "WARNING: Cupcake build failed (host arch may not match lib/aplib64.a) — shellcode builds will need a system cupcake binary"
 
 # Pre-fetch the latest Rust SGN (Shikata Ga Nai) binary. The Rust releases use
 # target-triple tarballs instead of the legacy sgn_linux_amd64_*.zip naming.
@@ -164,6 +164,10 @@ COPY --from=builder /go/bin/garble /go/bin/garble
 
 # Cupcake shellcode converter compiled from the vendored source (see above).
 COPY --from=builder /usr/local/bin/cupcake /usr/local/bin/cupcake
+# Vendored source kept in the runtime image so cupcake-manager.ts can rebuild
+# the converter from source (it looks for <root>/cupcake) when the prebuilt
+# binary is missing or unusable, instead of failing shellcode builds outright.
+COPY cupcake/ ./cupcake/
 
 ENV PATH="/usr/local/go/bin:/go/bin:${PATH}"
 ENV GOPATH="/app/client-build-cache/go"

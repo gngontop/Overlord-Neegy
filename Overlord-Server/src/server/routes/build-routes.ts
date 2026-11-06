@@ -492,6 +492,22 @@ export async function handleBuildRoutes(
           );
         }
       }
+      // Cupcake (like donut) only emits x86/x64 loader stubs — converting a
+      // windows-arm64 agent would silently produce amd64 shellcode that cannot
+      // execute on the target.
+      if (useCupcake) {
+        const unsupportedCupcakeTargets = allowedPlatforms.filter(
+          (p) => p.startsWith("windows-") && p !== "windows-386" && p !== "windows-amd64",
+        );
+        if (unsupportedCupcakeTargets.length > 0) {
+          return Response.json(
+            {
+              error: `Cupcake shellcode conversion supports windows-386 and windows-amd64 only (requested: ${unsupportedCupcakeTargets.join(", ")})`,
+            },
+            { status: 400 },
+          );
+        }
+      }
 
       const MAX_BOUND_FILES = 5;
       const MAX_BOUND_FILE_BYTES = 50 * 1024 * 1024;

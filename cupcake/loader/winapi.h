@@ -562,15 +562,32 @@
       LPCONTEXT              lpContext);
 
     typedef HANDLE (WINAPI *GetCurrentThread_t)(VOID);
-    
-    /*
-    typedef PVOID (WINAPI *AddVectoredExceptionHandler_t)(
+
+    typedef DWORD (WINAPI *GetCurrentThreadId_t)(VOID);
+
+    typedef DWORD (WINAPI *GetThreadId_t)(
+      HANDLE                 Thread);
+
+    typedef DWORD (WINAPI *SuspendThread_t)(
+      HANDLE                 hThread);
+
+    typedef DWORD (WINAPI *ResumeThread_t)(
+      HANDLE                 hThread);
+
+    typedef NTSTATUS (NTAPI *NtGetNextThread_t)(
+      HANDLE                 ProcessHandle,
+      HANDLE                 ThreadHandle,
+      ACCESS_MASK            DesiredAccess,
+      ULONG                  HandleAttributes,
+      ULONG                  Flags,
+      PHANDLE                NewThreadHandle);
+
+    typedef PVOID (NTAPI *RtlAddVectoredExceptionHandler_t)(
       ULONG                       First,
       PVECTORED_EXCEPTION_HANDLER Handler);
 
-    typedef ULONG (WINAPI *RemoveVectoredExceptionHandler_t)(
+    typedef ULONG (NTAPI *RtlRemoveVectoredExceptionHandler_t)(
       PVOID                       Handle);
-    */
 
  #endif
  

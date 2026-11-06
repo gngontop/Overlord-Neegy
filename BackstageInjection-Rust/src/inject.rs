@@ -92,7 +92,11 @@ pub unsafe fn load_dll_bytes_from_section() -> Option<Vec<u8>> {
     let bytes = unsafe { std::slice::from_raw_parts(view as *const u8, size) }.to_vec();
     unsafe {
         abi::UnmapViewOfFile(view);
-        abi::CloseHandle(handle);
+        // Keep `handle` open for the lifetime of this process.  Chromium starts
+        // renderer/GPU children after the injector releases its own handle; if
+        // every process closed its handle here the named section would be
+        // destroyed and children could no longer map the DLL.  One leaked
+        // handle per process is intentional and bounded.
     }
     dbg_log!("section: loaded {size} DLL bytes for reflective child inject");
     Some(bytes)

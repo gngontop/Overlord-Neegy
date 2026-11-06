@@ -560,6 +560,13 @@ function setBuildField(field, value) {
     cupcakeEntropy: "#cupcake-entropy",
     cupcakePreserveHeaders: "#cupcake-preserve-headers",
     cupcakeResumeOffset: "#cupcake-resume-offset",
+    // Pre-Cupcake names (saved forms, third-party build plugins).
+    useDonut: "#cupcake-mode",
+    donutSingleThreaded: "#cupcake-single-threaded",
+    donutExitMode: "#cupcake-exit-mode",
+    donutEntropy: "#cupcake-entropy",
+    donutPreserveHeaders: "#cupcake-preserve-headers",
+    donutResumeOffset: "#cupcake-resume-offset",
     useLinuxShellcode: "#linux-shellcode-mode",
     shellcodeConsole: "#shellcode-console",
     useSgn: "#sgn-mode",
@@ -594,7 +601,7 @@ function setBuildField(field, value) {
   else el.value = String(value ?? "");
   el.dispatchEvent(new Event("change", { bubbles: true }));
   el.dispatchEvent(new Event("input", { bubbles: true }));
-  if (field === "useCupcake") applyCupcakeMode(!!value);
+  if (field === "useCupcake" || field === "useDonut") applyCupcakeMode(!!value);
   if (field === "useLinuxShellcode") applyLinuxShellcodeMode(!!value);
   if (field === "useSgn") applySgnMode(!!value);
 }
@@ -963,15 +970,22 @@ function applyFormSettings(settings) {
   if (settings.assemblyCopyright !== undefined) setVal("assembly-copyright", settings.assemblyCopyright);
   if (settings.outputExtension !== undefined) setVal("output-extension", settings.outputExtension);
   if (settings.cryptableMode !== undefined) setCb("#cryptable-mode", settings.cryptableMode);
-  if (settings.useCupcake !== undefined) {
-    setCb("#cupcake-mode", settings.useCupcake);
-    if (settings.useCupcake) applyCupcakeMode(true);
+  // `donut*` keys are the pre-Cupcake names still present in saved forms.
+  const cupcakeMode = settings.useCupcake ?? settings.useDonut;
+  const cupcakeSingleThreaded = settings.cupcakeSingleThreaded ?? settings.donutSingleThreaded;
+  const cupcakeExitMode = settings.cupcakeExitMode ?? settings.donutExitMode;
+  const cupcakeEntropy = settings.cupcakeEntropy ?? settings.donutEntropy;
+  const cupcakePreserveHeaders = settings.cupcakePreserveHeaders ?? settings.donutPreserveHeaders;
+  const cupcakeResumeOffset = settings.cupcakeResumeOffset ?? settings.donutResumeOffset;
+  if (cupcakeMode !== undefined) {
+    setCb("#cupcake-mode", cupcakeMode);
+    if (cupcakeMode) applyCupcakeMode(true);
   }
-  if (settings.cupcakeSingleThreaded !== undefined) setCb("#cupcake-single-threaded", settings.cupcakeSingleThreaded);
-  if (settings.cupcakeExitMode !== undefined) setVal("cupcake-exit-mode", settings.cupcakeExitMode);
-  if (settings.cupcakeEntropy !== undefined) setVal("cupcake-entropy", settings.cupcakeEntropy);
-  if (settings.cupcakePreserveHeaders !== undefined) setCb("#cupcake-preserve-headers", settings.cupcakePreserveHeaders);
-  if (settings.cupcakeResumeOffset !== undefined) setVal("cupcake-resume-offset", settings.cupcakeResumeOffset);
+  if (cupcakeSingleThreaded !== undefined) setCb("#cupcake-single-threaded", cupcakeSingleThreaded);
+  if (cupcakeExitMode !== undefined) setVal("cupcake-exit-mode", cupcakeExitMode);
+  if (cupcakeEntropy !== undefined) setVal("cupcake-entropy", cupcakeEntropy);
+  if (cupcakePreserveHeaders !== undefined) setCb("#cupcake-preserve-headers", cupcakePreserveHeaders);
+  if (cupcakeResumeOffset !== undefined) setVal("cupcake-resume-offset", cupcakeResumeOffset);
   if (settings.useLinuxShellcode !== undefined) {
     setCb("#linux-shellcode-mode", settings.useLinuxShellcode);
     if (settings.useLinuxShellcode) applyLinuxShellcodeMode(true);
@@ -1186,11 +1200,21 @@ function applyCryptableShellcodeGate() {
 
 function updateShellcodeCheckboxVisibility() {
   const selected = Array.from(document.querySelectorAll('input[name="platform"]:checked')).map((el) => el.value);
-  const hasWindows = selected.some((p) => p.startsWith("windows-"));
+  const hasCupcakeWindows = selected.some((p) => p === "windows-386" || p === "windows-amd64");
   const hasLinuxAmd64 = selected.includes("linux-amd64");
 
   const cupcakeRow = document.getElementById("cupcake-row");
-  if (cupcakeRow) cupcakeRow.classList.toggle("hidden", !hasWindows);
+  if (cupcakeRow) cupcakeRow.classList.toggle("hidden", !hasCupcakeWindows);
+  if (!hasCupcakeWindows) {
+    const cupcakeCheckbox = document.getElementById("cupcake-mode");
+    if (cupcakeCheckbox?.checked) {
+      cupcakeCheckbox.checked = false;
+      applyCupcakeMode(false);
+    }
+  }
+
+  const arm64Warn = document.getElementById("cupcake-arm64-warn");
+  if (arm64Warn) arm64Warn.classList.toggle("hidden", !selected.includes("windows-arm64"));
 
   const linuxScRow = document.getElementById("linux-sc-row");
   if (linuxScRow) linuxScRow.classList.toggle("hidden", !hasLinuxAmd64);
@@ -1199,7 +1223,7 @@ function updateShellcodeCheckboxVisibility() {
 
   // SGN is only meaningful when there's shellcode to encode — i.e. Cupcake or
   // Linux shellcode is enabled on a compatible platform.
-  const cupcakeOn = document.getElementById("cupcake-mode")?.checked && hasWindows;
+  const cupcakeOn = document.getElementById("cupcake-mode")?.checked && hasCupcakeWindows;
   const linuxScOn = document.getElementById("linux-shellcode-mode")?.checked && hasLinuxAmd64;
   const sgnRow = document.getElementById("sgn-row");
   if (sgnRow) sgnRow.classList.toggle("hidden", !(cupcakeOn || linuxScOn));

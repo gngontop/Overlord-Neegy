@@ -47,6 +47,9 @@ BOOL DisableWLDP(PDONUT_INSTANCE);
 // Disables ETW
 BOOL DisableETW(PDONUT_INSTANCE);
 
+// Removes the ETW hardware breakpoints and VEH handler
+VOID DisableETWCleanup(PDONUT_INSTANCE);
+
 // Use by BYPASS_WLDP_A
 typedef enum _WLDP_HOST_ID {
     WLDP_HOST_ID_UNKNOWN = 0,

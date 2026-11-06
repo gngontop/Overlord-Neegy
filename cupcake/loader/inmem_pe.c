@@ -595,6 +595,10 @@ cleanup:
     DPRINT("Wiping payload from Donut module in memory.");
     Memset(base, 0, mod->len);
 
+    // reset the configuration flags and erase the decoy path after use
+    inst->headers = 0;
+    Memset(inst->decoy, 0, sizeof(inst->decoy));
+
     // if user specified to block instead of exit, then block infinitely post-cleanup (instead of returning)
     if (inst->exit_opt == DONUT_OPT_EXIT_BLOCK) {
       DPRINT("Execution complete. Blocking indefintely.");

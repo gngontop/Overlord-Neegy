@@ -171,12 +171,20 @@ LPVOID xGetLibAddress(PDONUT_INSTANCE inst, PCHAR search) {
     DWORD                   i;
     int                     correct = -1;
 
-    for(i=0; search[i] != 0 && i < 63; i++) {
+    // Leave room for the optional ".dll" suffix and the terminator.  The old
+    // limit (63) allowed the suffix to write past the end of dll_name.
+    for(i=0; search[i] != 0 && i < sizeof(dll_name)-6; i++) {
       dll_name[i] = search[i];
     }
+    // refuse a truncated name instead of loading the wrong module
+    if (search[i] != 0) return NULL;
     dll_name[i] = 0;
-    // make sure the name ends with '.dll'
-    if (dll_name[i-4] != '.') {
+    // make sure the name ends with '.dll' (case-insensitive)
+    if (i < 4 ||
+        dll_name[i-4] != '.' ||
+        (dll_name[i-3] != 'd' && dll_name[i-3] != 'D') ||
+        (dll_name[i-2] != 'l' && dll_name[i-2] != 'L') ||
+        (dll_name[i-1] != 'l' && dll_name[i-1] != 'L')) {
       dll_name[i++] = '.';
       dll_name[i++] = 'd';
       dll_name[i++] = 'l';
@@ -255,7 +263,7 @@ LPVOID FindExport(PDONUT_INSTANCE inst, LPVOID base, ULONG64 api_hash, ULONG64 i
     dll = RVA2VA(PCHAR, base, exp->Name);
     
     // get hash of DLL string converted to lowercase
-    for(i=0;dll[i]!=0;i++) {
+    for(i=0; dll[i]!=0 && i < sizeof(buf)-1; i++) {
       buf[i] = dll[i] | 0x20;
     }
     buf[i] = 0;

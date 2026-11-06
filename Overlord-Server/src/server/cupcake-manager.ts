@@ -5,9 +5,7 @@ import { ensureDataDir } from "../paths";
 import { logger } from "../logger";
 import { resolveRuntimeRoot } from "./runtime-paths";
 
-const VERSION_TTL_MS = 24 * 60 * 60 * 1000; // re-check source mtime at most once per day
-
-type CachedVersion = { tag: string; cachedAt: number };
+type CachedBuild = { cachedAt: number; sourceMtimeMs?: number; tag?: string };
 
 /**
  * Cupcake (a maintained fork of TheWover/donut with fixes and improvements) is
@@ -31,14 +29,14 @@ function versionFilePath(): string {
   return path.join(toolsDir(), "cupcake.version");
 }
 
-function readCache(): CachedVersion | null {
-  try { return JSON.parse(fs.readFileSync(versionFilePath(), "utf8")); } catch { return null; }
+function readCache(): CachedBuild | null {
+  try { return JSON.parse(fs.readFileSync(versionFilePath(), "utf8")) as CachedBuild; } catch { return null; }
 }
 
-function writeCache(tag: string): void {
+function writeCache(entry: CachedBuild): void {
   try {
     fs.mkdirSync(toolsDir(), { recursive: true });
-    fs.writeFileSync(versionFilePath(), JSON.stringify({ tag, cachedAt: Date.now() }));
+    fs.writeFileSync(versionFilePath(), JSON.stringify(entry));
   } catch {}
 }
 
@@ -55,10 +53,27 @@ function findSystemCupcake(): string | null {
   return null;
 }
 
-function resolveCacheAge(): number {
-  const cached = readCache();
-  if (!cached) return Infinity;
-  return Date.now() - cached.cachedAt;
+/** Newest mtime (ms) of the files that are compiled into the binary, or null when the vendored source is unreadable. */
+function sourceFingerprint(dir: string): number | null {
+  const inputs = [
+    "donut.c",
+    "hash.c",
+    "encrypt.c",
+    "format.c",
+    "loader/clib.c",
+    "include/donut.h",
+    "loader_exe_x64.h",
+    "loader_exe_x86.h",
+  ];
+  let newest = 0;
+  try {
+    for (const rel of inputs) {
+      newest = Math.max(newest, Math.trunc(fs.statSync(path.join(dir, rel)).mtimeMs));
+    }
+  } catch {
+    return null;
+  }
+  return newest > 0 ? newest : null;
 }
 
 export function resolveCupcakeSourceDir(): string | null {
@@ -133,9 +148,13 @@ async function buildFromSource(sendToStream?: (data: any) => void): Promise<stri
 
 /**
  * Ensures the Cupcake binary is available, in this order:
- *   1. system-installed binary (PATH or /usr/local/bin),
- *   2. previously compiled binary in data/tools,
- *   3. freshly compiled from the vendored cupcake/ source.
+ *   1. previously compiled binary in data/tools, when it was built from the
+ *      current vendored source (fingerprinted by mtime, no time-based re-checks),
+ *   2. system-installed binary (PATH or /usr/local/bin, e.g. baked into the
+ *      Docker image),
+ *   3. a local binary with no vendored source to compare against (packaged
+ *      installs that never ship cupcake/),
+ *   4. freshly compiled from the vendored cupcake/ source.
  * Returns the path to the binary, or null if it could not be obtained.
  */
 export async function ensureCupcake(
@@ -144,39 +163,41 @@ export async function ensureCupcake(
   const bin = binaryPath();
   const cached = readCache();
   const binExists = fs.existsSync(bin);
-  const fresh = resolveCacheAge() <= VERSION_TTL_MS;
+  const sourceDir = resolveCupcakeSourceDir();
+  const sourceMtimeMs = sourceDir ? sourceFingerprint(sourceDir) : null;
+  const builtFromCurrentSource =
+    binExists && sourceMtimeMs !== null && cached?.sourceMtimeMs === sourceMtimeMs;
 
   const log = (text: string, level = "info") => {
     logger.info(`[cupcake] ${text.trim()}`);
     sendToStream?.({ type: "output", text: `${text}\n`, level });
   };
 
-  // Prefer a system-installed binary (e.g. compiled into the Docker image)
-  // before anything else. Record it so future calls skip further work.
-  const sysBin = findSystemCupcake();
-  if (sysBin && (fresh || !binExists)) {
-    log(`Cupcake: using system binary at ${sysBin}`);
-    writeCache("system");
-    return sysBin;
-  }
-
-  if (binExists && fresh) {
-    log(`Cupcake: using compiled binary (${cached!.tag})`);
+  if (builtFromCurrentSource) {
+    log(`Cupcake: using compiled binary (${cached?.tag ?? "built"})`);
     return bin;
   }
 
-  if (binExists && !fresh && !sysBin) {
-    // Nothing new on system — keep using our own compiled binary.
-    log(`Cupcake: using compiled binary (${cached?.tag ?? "unknown"})`);
-    writeCache(cached?.tag ?? "built");
+  // A system binary is runnable as-is; never recompile over it just because the
+  // vendored source moved on (that recompiled the same binary on every request).
+  const sysBin = findSystemCupcake();
+  if (sysBin) {
+    log(`Cupcake: using system binary at ${sysBin}`);
+    return sysBin;
+  }
+
+  if (binExists && sourceMtimeMs === null) {
+    log(`Cupcake: using compiled binary (${cached?.tag ?? "built"}, vendored source not available)`);
     return bin;
   }
 
   const built = await buildFromSource(sendToStream);
   if (built) {
-    const sourceDir = resolveCupcakeSourceDir();
-    const sourceStat = sourceDir ? fs.statSync(sourceDir) : null;
-    writeCache(`built from cupcake${sourceStat ? ` @${sourceStat.mtimeMs}` : "@"}`);
+    writeCache({
+      cachedAt: Date.now(),
+      sourceMtimeMs: sourceMtimeMs ?? undefined,
+      tag: `build @${sourceMtimeMs ?? 0}`,
+    });
     log("Cupcake: ready (compiled from source)");
     return built;
   }
@@ -211,7 +232,9 @@ export async function ensureCupcake(
  *          1 = overwrite (zero or decoy), 2 = keep all headers intact
  *   -y N   resume host execution at offset (optional)
  *          creates a new thread for the loader, then continues host execution
- *          at the given file offset relative to the host's executable base
+ *          at the given file offset relative to the host's executable base.
+ *          Cupcake parses this value as hexadecimal (strtoull base 16), so the
+ *          decimal offset from the build form is converted to hex here.
  *
  * Exit behavior defaults to "exit thread" (-x 1) when -x is omitted, which is
  * what we want — prevents crashing the host process when the agent terminates.
@@ -253,7 +276,9 @@ export async function runCupcake(
   if (opts?.exitMode !== undefined) extraFlags.push("-x", String(opts.exitMode));
   if (opts?.entropy !== undefined) extraFlags.push("-e", String(opts.entropy));
   if (opts?.preserveHeaders) extraFlags.push("-k", "2");
-  if (opts?.resumeOffset !== undefined) extraFlags.push("-y", String(opts.resumeOffset));
+  if (opts?.resumeOffset !== undefined) {
+    extraFlags.push("-y", `0x${Math.trunc(opts.resumeOffset).toString(16)}`);
+  }
 
   try {
     // -i flag required since cupcake v1 (previously positional arg)

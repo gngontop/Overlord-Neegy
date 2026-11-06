@@ -1,6 +1,44 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Fixed
+
+* Hardened the loader stub's AMSI, WLDP and ETW bypasses. They now patch exact,
+  minimal byte sequences instead of copying compiled C "stub" functions whose
+  length was calculated from adjacent function addresses.
+* Bounded the AMSI signature scan and CLR `.data` scan so they can no longer
+  read outside the mapped image.
+* Added a patchless ETW bypass: a VEH plus execute hardware breakpoints on
+  `NtTraceEvent` (falling back to `EtwEventWrite`). The handler fakes the
+  function return, so no bytes are written to ntdll or any other module. The
+  breakpoint is installed on the current thread and, when `NtGetNextThread` is
+  available, on every other thread in the process. If debug registers are
+  already occupied, the old inline syscall-stub patch is used as a fallback.
+* Changed the inline ETW fallback to patch the lower-level `NtTraceEvent`
+  syscall stub first, with `EtwEventWrite` only as a fallback. This avoids the
+  very common `EtwEventWrite` prologue signature.
+* Kept the x86 ETW synthetic return as `ret 14h`: the first argument
+  (`TRACEHANDLE`/`REGHANDLE`) is 64-bit, so the four logical arguments occupy
+  20 bytes on the stack.
+* Fixed an out-of-bounds read/overflow when a DLL name shorter than four
+  characters (or close to the buffer limit) is resolved in `xGetLibAddress`.
+* Fixed a double free when `build_instance()` failed after `build_module()`.
+* The loader now wipes the instance/module keys, MAC inputs, HTTP credentials,
+  evasion API names and bypass flags as soon as they are no longer needed.
+* `DonutDelete()` zeroes module, instance and shellcode buffers before freeing
+  them and resets the associated lengths.
+* When AMSI/WLDP/ETW bypassing is enabled, the instance is always encrypted.
+  This prevents `-e 1`/`-e 2` from leaving plaintext `amsi`, `AmsiScanBuffer`,
+  `EtwEventWrite`, etc. in the generated stub.
+
+### Changed
+
+* The mingw loader templates are built with tighter code-size flags and the
+  default WLDP bypass is now `BYPASS_WLDP_B` (the previous no-op `_A` variant
+  did not actually disable WLDP).
+
 ## [v1.0]
 
 ### Added

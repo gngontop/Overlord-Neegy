@@ -65,19 +65,35 @@ unsafe fn rd_u8(p: usize, off: usize) -> u8 {
     core::ptr::read_volatile((p + off) as *const u8)
 }
 
+// All multi-byte helpers are byte-wise on purpose.  The reflective loader
+// reads PE headers and export tables at arbitrary offsets (and the base scan
+// steps one byte at a time), so a typed volatile load would require alignment.
+// Rust's debug assertions enforce that precondition and abort the process on
+// an unaligned address; byte-wise volatile loads are also what keeps the
+// loader free of libcalls.
 #[inline(always)]
 unsafe fn rd_u16(p: usize, off: usize) -> u16 {
-    core::ptr::read_volatile((p + off) as *const u16)
+    (rd_u8(p, off) as u16) | ((rd_u8(p, off + 1) as u16) << 8)
 }
 
 #[inline(always)]
 unsafe fn rd_u32(p: usize, off: usize) -> u32 {
-    core::ptr::read_volatile((p + off) as *const u32)
+    (rd_u8(p, off) as u32)
+        | ((rd_u8(p, off + 1) as u32) << 8)
+        | ((rd_u8(p, off + 2) as u32) << 16)
+        | ((rd_u8(p, off + 3) as u32) << 24)
 }
 
 #[inline(always)]
 unsafe fn rd_u64(p: usize, off: usize) -> u64 {
-    core::ptr::read_volatile((p + off) as *const u64)
+    (rd_u8(p, off) as u64)
+        | ((rd_u8(p, off + 1) as u64) << 8)
+        | ((rd_u8(p, off + 2) as u64) << 16)
+        | ((rd_u8(p, off + 3) as u64) << 24)
+        | ((rd_u8(p, off + 4) as u64) << 32)
+        | ((rd_u8(p, off + 5) as u64) << 40)
+        | ((rd_u8(p, off + 6) as u64) << 48)
+        | ((rd_u8(p, off + 7) as u64) << 56)
 }
 
 #[inline(always)]
@@ -87,13 +103,20 @@ unsafe fn wr_u8(p: usize, off: usize, v: u8) {
 
 #[inline(always)]
 unsafe fn wr_u64(p: usize, off: usize, v: u64) {
-    core::ptr::write_volatile((p + off) as *mut u64, v);
+    wr_u8(p, off, (v & 0xFF) as u8);
+    wr_u8(p, off + 1, ((v >> 8) & 0xFF) as u8);
+    wr_u8(p, off + 2, ((v >> 16) & 0xFF) as u8);
+    wr_u8(p, off + 3, ((v >> 24) & 0xFF) as u8);
+    wr_u8(p, off + 4, ((v >> 32) & 0xFF) as u8);
+    wr_u8(p, off + 5, ((v >> 40) & 0xFF) as u8);
+    wr_u8(p, off + 6, ((v >> 48) & 0xFF) as u8);
+    wr_u8(p, off + 7, ((v >> 56) & 0xFF) as u8);
 }
 
 // Unaligned-safe read so the base scan can step byte-by-byte.
 #[inline(always)]
 unsafe fn rd_u16_bytes(p: usize) -> u16 {
-    rd_u8(p, 0) as u16 | ((rd_u8(p, 1) as u16) << 8)
+    rd_u16(p, 0)
 }
 
 #[inline(always)]
