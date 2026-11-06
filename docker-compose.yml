@@ -1,17 +1,12 @@
-# Neegy fork: the server image is built locally from this repository.
-# Run `docker compose up -d --build` after cloning. Set DOCKER_IMAGE to a
-# published fork image (for example ghcr.io/gngontop/overlord-neegy:latest)
-# if you prefer pulling instead of building.
+# Neegy fork: compose-only deployment. Download this file and run
+# `docker compose up -d`; Docker pulls the published server image and keeps
+# state in named volumes. Override DOCKER_IMAGE for a mirror or pinned tag.
+# For a local source build use:
+#   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
 services:
   overlord-server:
-    image: ${DOCKER_IMAGE:-overlord-neegy:latest}
-    build:
-      context: .
-      dockerfile: Dockerfile
-      cache_from:
-        - type=local,src=.docker-cache/buildx
-      cache_to:
-        - type=local,dest=.docker-cache/buildx,mode=max
+    image: ${DOCKER_IMAGE:-ghcr.io/gngontop/overlord-neegy:latest}
+    pull_policy: always
     container_name: overlord-server
     user: "1000:1000"
     read_only: true

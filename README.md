@@ -125,10 +125,11 @@ native installation or move the server to Linux.
 
 > Windows and macOS use `docker-compose.windows.yml`. Linux uses the default `docker-compose.yml` (host networking).
 >
-> This fork builds the server image locally by default (`overlord-neegy:latest`)
-> because the fork does not depend on an upstream GHCR image. Use
-> `docker compose up -d --build` after cloning. If you publish the fork image
-> yourself, set `DOCKER_IMAGE=ghcr.io/gngontop/overlord-neegy:latest`.
+> Only the compose file is required. `docker compose up -d` pulls
+> `ghcr.io/gngontop/overlord-neegy:latest` (or `DOCKER_IMAGE`) every time; the
+> image already contains the server, client sources, Cupcake/Fritter, and build
+> tooling. If the GHCR package is private, run `docker login ghcr.io` once.
+> For local source builds use the optional `docker-compose.build.yml` override.
 
 After the first start, open `https://localhost:5173`. The default username is
 `admin`. Unless you set `OVERLORD_PASS`, first startup generates a one-time
@@ -181,17 +182,18 @@ docker --version
 docker compose version
 ```
 
-**2. Get the project**
+**2. Grab the compose file**
 
 ```powershell
-git clone https://github.com/gngontop/Overlord-Neegy.git
-cd Overlord-Neegy
+curl.exe -fsSLO https://raw.githubusercontent.com/gngontop/Overlord-Neegy/main/docker-compose.windows.yml
 ```
+
+No repository clone is needed; the image contains the rest.
 
 **3. Start it**
 
 ```powershell
-docker compose -f docker-compose.windows.yml up -d --build
+docker compose -f docker-compose.windows.yml up -d
 ```
 
 **4. Get the initial password**
@@ -214,9 +216,7 @@ https://localhost:5173
 **6. Update later**
 
 ```powershell
-git pull
-docker compose -f docker-compose.windows.yml down
-docker compose -f docker-compose.windows.yml build
+docker compose -f docker-compose.windows.yml pull
 docker compose -f docker-compose.windows.yml up -d
 ```
 
@@ -277,40 +277,44 @@ Make sure the daemon is running:
 sudo systemctl status docker
 ```
 
-**2. Clone the fork**
-
-The fork vendors `cupcake/` and builds the server image locally, so clone the
-repository instead of downloading a single compose file:
+**2. Grab the compose file**
 
 ```bash
-git clone https://github.com/gngontop/Overlord-Neegy.git
-cd Overlord-Neegy
+mkdir overlord && cd overlord
+curl -fsSLO https://raw.githubusercontent.com/gngontop/Overlord-Neegy/main/docker-compose.yml
 ```
+
+No repository clone is needed; the image contains the rest.
 
 **3. Start it**
 
 ```bash
-docker compose up -d --build
+docker compose up -d
 ```
 
-The default Compose file builds `overlord-neegy:latest` from the fork’s
-`Dockerfile` and uses it for the server. The one-shot permissions-init service
-uses `alpine:3.22` because it only needs `chown`. This is deliberate: the fork
-does not assume an upstream `ghcr.io/doesntbreaktos/overlord` image exists.
+The default Compose file pulls
+`ghcr.io/gngontop/overlord-neegy:latest` on every start and keeps mutable
+state in named volumes. Override `DOCKER_IMAGE` to use a mirror or a pinned
+tag. The one-shot permissions-init service uses `alpine:3.22` because it only
+needs `chown`.
 
-If you publish this fork to GitHub Container Registry, set the image tag and
-Compose will use it instead of the local tag:
+If the GitHub Container Registry package is private, authenticate once:
 
 ```bash
-DOCKER_IMAGE=ghcr.io/gngontop/overlord-neegy:latest docker compose up -d
+echo "$GHCR_TOKEN" | docker login ghcr.io -u gngontop --password-stdin
 ```
 
 Maintainers can publish a matching multi-architecture GHCR image from the
 [overlord-ci workflow](https://github.com/gngontop/Overlord-Neegy/actions/workflows/docker-publish.yml).
 Select **Run workflow** and enter the version currently declared by the server
 and agent (for example, `3.1.0`). The workflow publishes version, major/minor,
-major, and `latest` tags to `ghcr.io/gngontop/overlord-neegy`. Keep the package
-visibility public so Compose can pull it without GitHub authentication.
+major, and `latest` tags to `ghcr.io/gngontop/overlord-neegy`.
+
+For a local source build instead of pulling the image:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+```
 
 **4. Get the initial password**
 
@@ -338,9 +342,7 @@ https://IP:5173
 From the same folder:
 
 ```bash
-git pull
-docker compose down
-docker compose build
+docker compose pull
 docker compose up -d
 ```
 
@@ -379,11 +381,10 @@ docker --version
 docker compose version
 ```
 
-**2. Get the project**
+**2. Grab the compose file**
 
 ```bash
-git clone https://github.com/gngontop/Overlord-Neegy.git
-cd Overlord-Neegy
+curl -fsSLO https://raw.githubusercontent.com/gngontop/Overlord-Neegy/main/docker-compose.windows.yml
 ```
 
 **3. Start it**
@@ -391,7 +392,7 @@ cd Overlord-Neegy
 macOS uses the same compose file as Windows:
 
 ```bash
-docker compose -f docker-compose.windows.yml up -d --build
+docker compose -f docker-compose.windows.yml up -d
 ```
 
 **4. Get the initial password**
@@ -414,9 +415,7 @@ https://localhost:5173
 **6. Update later**
 
 ```bash
-git pull
-docker compose -f docker-compose.windows.yml down
-docker compose -f docker-compose.windows.yml build
+docker compose -f docker-compose.windows.yml pull
 docker compose -f docker-compose.windows.yml up -d
 ```
 
@@ -760,9 +759,17 @@ Logo, hero, and support URLs accept absolute `http(s)` URLs or root-relative pat
 
 Notes on configs and workarounds.
 
-### BuildKit cache for faster rebuilds
+### Local source builds
 
-`docker-compose.yml` ships with `build.cache_from` and `build.cache_to` pointing at `.docker-cache/buildx`. Local builds reuse it automatically — no extra setup.
+The default compose file pulls the published image. If you are developing the
+server, use the optional local-build override; its `build.cache_from` and
+`build.cache_to` point at `.docker-cache/buildx`:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+```
+
+Set `DOCKER_IMAGE` to tag the build with a different name.
 
 ### Runtime client build cache
 

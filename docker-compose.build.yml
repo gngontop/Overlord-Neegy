@@ -1,0 +1,16 @@
+# Optional developer override: build the server image from the local checkout
+# instead of pulling the published image.
+#
+#   Linux:   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+#   Desktop: docker compose -f docker-compose.windows.yml -f docker-compose.build.yml up -d --build
+services:
+  overlord-server:
+    image: ${DOCKER_IMAGE:-overlord-neegy:local}
+    pull_policy: missing
+    build:
+      context: .
+      dockerfile: Dockerfile
+      cache_from:
+        - type=local,src=.docker-cache/buildx
+      cache_to:
+        - type=local,dest=.docker-cache/buildx,mode=max
