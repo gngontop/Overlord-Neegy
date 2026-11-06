@@ -36,10 +36,13 @@ This fork focuses on the Windows agent’s shellcode and Backstage/HVNC paths:
 - **Hardened Cupcake loader.** Exact byte patches instead of copied C stub
   functions, bounded AMSI/WLDP scans, safe DLL-name resolution, sensitive
   instance/key/flag wiping, and regenerated x86/x64 loader stubs.
-- **Patchless ETW bypass.** The default ETW path uses a VEH plus execute
+- **Patchless ETW bypass.** Standalone Cupcake defaults to a VEH plus execute
   hardware breakpoints on `NtTraceEvent` (with `EtwEventWrite` as a fallback),
   so ntdll is not modified when debug registers are available. A minimal inline
   syscall-stub patch remains as a compatibility fallback.
+  Overlord’s SGN pipeline invokes Cupcake with `-b 1` (`runCupcake` in
+  `cupcake-manager.ts`), so SGN remains the outer evasion layer and Cupcake’s
+  own AMSI/WLDP/ETW bypass is intentionally off. Use `-b 3` for both layers.
 - **Backstage browser injection fixes.** Browser executables are quoted for
   `CreateProcessW` (paths such as `C:\Program Files\...` now launch correctly),
   Chromium/Firefox arguments are handled per-browser, Chromium handoff exit
