@@ -7,6 +7,8 @@ SERVER_SRC="$ROOT/Overlord-Server"
 CLIENT_SRC="$ROOT/Overlord-Client"
 LITE_SRC="$ROOT/Overlord-Lite"
 LITE_PLUGIN_SRC="$ROOT/plugins/rust-lite-builder"
+BEACON_SRC="$ROOT/Overlord-Beacon"
+BEACON_PLUGIN_SRC="$ROOT/plugins/rust-beacon-builder"
 DIST_CLIENTS_SRC="$ROOT/dist-clients"
 RELEASE_DIR="$ROOT/release/prod-package"
 
@@ -76,13 +78,18 @@ mkdir -p "$RELEASE_DIR"
 
 echo "[4/6] Exporting Overlord-Server..."
 copy_tree_excluding "$SERVER_SRC" "$RELEASE_DIR/Overlord-Server" "node_modules" ".git" ".vscode"
+copy_tree_excluding "$ROOT/protocol" "$RELEASE_DIR/protocol"
 
 echo "[5/6] Exporting Overlord-Client source for runtime builds..."
 copy_tree_excluding "$CLIENT_SRC" "$RELEASE_DIR/Overlord-Client" "build" ".git" ".vscode"
 
-echo "[6/6] Exporting Overlord-Lite source and Rust builder plugin..."
+echo "[6/6] Exporting Rust agent sources and builder plugins..."
 copy_tree_excluding "$LITE_SRC" "$RELEASE_DIR/Overlord-Lite" "target" ".git" ".vscode"
 copy_tree_excluding "$LITE_PLUGIN_SRC" "$RELEASE_DIR/Overlord-Server/plugins/rust-lite-builder" "data" "rust-lite-builder.zip"
+if [[ -f "$BEACON_SRC/Cargo.toml" ]]; then
+  copy_tree_excluding "$BEACON_SRC" "$RELEASE_DIR/Overlord-Beacon" "target" ".git" ".vscode"
+fi
+copy_tree_excluding "$BEACON_PLUGIN_SRC" "$RELEASE_DIR/Overlord-Server/plugins/rust-beacon-builder" "data" "rust-beacon-builder.zip"
 
 echo "[extra] Minifying and fingerprinting production web assets..."
 pushd "$SERVER_SRC" >/dev/null

@@ -20,7 +20,7 @@ describe("self-signed certificate profile", () => {
     expect(config).toContain("IP.2 = ::1");
     expect(config).not.toContain("Overlord");
     expect(config).not.toContain("*.local");
-    expect(subject.commonName).toMatch(/^host-[0-9a-f]{16}\.invalid$/);
+    expect(subject.commonName).toMatch(/^(edge|relay|gateway|sync|media|update|auth|cache)-[0-9a-f]{8}\.(com|net|cloud|io|dev)$/);
   });
 
   test("generates a different subject identity for each certificate", () => {
@@ -28,7 +28,7 @@ describe("self-signed certificate profile", () => {
     const second = generateRandomSelfSignedSubject();
     expect(second).not.toEqual(first);
     expect(first.country).toMatch(/^[A-Z]{2}$/);
-    expect(first.organization).toMatch(/^Service-[0-9a-f]{16}$/);
+    expect(first.organization).toMatch(/^(Northwind|Contoso|Fabrikam|Initech|Acme|Globex|Soylent|Vandelay|Hooli|Pied Piper) (Systems|Networks|Labs|Group|Digital)$/);
   });
 
   test("includes only valid explicitly requested interface addresses", () => {

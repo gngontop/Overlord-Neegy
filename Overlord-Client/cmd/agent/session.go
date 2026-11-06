@@ -180,16 +180,25 @@ func tryRefreshServerList(cfg *config.Config, lastSolRefresh *time.Time, current
 	}
 }
 
+const browserUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+
 func buildDialOptions(cfg config.Config, transport *http.Transport) *websocket.DialOptions {
 	headers := http.Header{}
 	if token := strings.TrimSpace(cfg.AgentToken); token != "" {
 		headers.Set("x-agent-token", token)
 	}
+	// Match a browser-shaped handshake instead of Go's default net/http
+	// fingerprint and avoid permessage-deflate negotiation.
+	headers.Set("User-Agent", browserUserAgent)
+	headers.Set("Accept", "*/*")
+	headers.Set("Accept-Language", "en-US,en;q=0.9")
+	headers.Set("Cache-Control", "no-cache")
+	headers.Set("Pragma", "no-cache")
 	return &websocket.DialOptions{
 		Subprotocols:    []string{"binary"},
 		HTTPClient:      &http.Client{Transport: transport},
 		HTTPHeader:      headers,
-		CompressionMode: websocket.CompressionContextTakeover,
+		CompressionMode: websocket.CompressionDisabled,
 	}
 }
 
@@ -331,7 +340,12 @@ func createHTTPTransport(cfg config.Config) (*http.Transport, error) {
 	}
 
 	transport := http.DefaultTransport.(*http.Transport).Clone()
+	if tlsConfig != nil {
+		tlsConfig.NextProtos = []string{"http/1.1"}
+	}
 	transport.TLSClientConfig = tlsConfig
+	transport.ForceAttemptHTTP2 = false
+	transport.DisableCompression = true
 	transport.DialContext = (&net.Dialer{
 		Timeout:   30 * time.Second,
 		KeepAlive: 15 * time.Second,
@@ -472,6 +486,17 @@ func getEnrollmentRetryInterval() time.Duration {
 		}
 	}
 	return 30 * time.Second
+}
+
+func jitterPingInterval(base time.Duration) time.Duration {
+	if base <= 0 {
+		return base
+	}
+	spread := base / 5
+	if spread <= 0 {
+		return base
+	}
+	return base + time.Duration(rand.Int63n(int64(spread*2+1))) - spread
 }
 
 func getPingInterval() time.Duration {
@@ -723,19 +748,20 @@ func runSession(ctx context.Context, cancel context.CancelFunc, conn *websocket.
 	if interval := getPingInterval(); interval > 0 {
 		log.Printf("ping: heartbeat interval=%s", interval)
 		goSafe("ping loop", cancel, func() {
-			ticker := time.NewTicker(interval)
-			defer ticker.Stop()
+			timer := time.NewTimer(jitterPingInterval(interval))
+			defer timer.Stop()
 			for {
 				select {
 				case <-ctx.Done():
 					return
-				case <-ticker.C:
+				case <-timer.C:
 					ping := wire.Ping{Type: "ping", TS: time.Now().UnixMilli()}
 					if err := wire.WriteMsg(ctx, env.Conn, ping); err != nil {
 						log.Printf("ping: failed to send: %v", err)
 						cancel()
 						return
 					}
+					timer.Reset(jitterPingInterval(interval))
 				}
 			}
 		})

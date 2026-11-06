@@ -143,7 +143,6 @@ pub async fn run(config: &Config, identity: &Identity, server: &ServerUrl) -> Re
         }
     }
 
-    eprintln!("authenticated and connected as {}", identity.client_id);
     send_value(
         &mut socket,
         &Ping {
@@ -198,7 +197,7 @@ async fn handle_envelope(
     } else if message_type == COMMAND.as_str() {
         handle_command(socket, consoles, envelope).await?;
     } else if message_type != PONG.as_str() && message_type != HELLO_ACK.as_str() {
-        eprintln!("ignoring unsupported server message {message_type}");
+        let _ = message_type;
     }
     Ok(())
 }
@@ -318,7 +317,7 @@ async fn send_unsupported_command(socket: &mut Socket, envelope: &Value) -> Resu
             command_type: command,
             command_version: version,
             ok: false,
-            message: Some("command is not supported by Overlord Lite"),
+            message: None,
             error_code: Some("unsupported_command"),
         },
     )

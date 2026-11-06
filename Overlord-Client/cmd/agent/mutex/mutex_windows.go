@@ -19,7 +19,7 @@ func Acquire(name string) (func(), bool, error) {
 		return nil, false, err
 	}
 
-	fullName := "Global\\Overlord-" + sanitized
+	fullName := "Local\\" + sanitized
 	handle, err := windows.CreateMutex(nil, false, windows.StringToUTF16Ptr(fullName))
 	if err == windows.ERROR_ALREADY_EXISTS {
 		if handle != 0 {

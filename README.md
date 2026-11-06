@@ -11,10 +11,12 @@ Hello, I made this project for fun.
 This is the **Neegy fork** of Overlord: [gngontop/Overlord-Neegy](https://github.com/gngontop/Overlord-Neegy).
 The upstream project is [doesntbreaktos/Overlord](https://github.com/doesntbreaktos/Overlord).
 The fork keeps the same server/client architecture and wire protocol, and adds the
-Cupcake shellcode pipeline, hardened loader/ETW behavior, and Backstage browser
-injection fixes described below.
+Cupcake shellcode pipeline, hardened loader/ETW behavior, a full Rust beacon, and a
+real hidden-desktop/hidden-browser path described below.
 
-The server is TypeScript on Node/Bun. The client is Go. Operators talk to the server through a web panel or the Electron desktop app, and agents connect over encrypted WebSockets.
+The server is TypeScript on Node/Bun. The agents are Go and Rust. Operators talk to
+the server through a web panel or the Electron desktop app, and agents connect over
+encrypted WebSockets.
 
 On Linux, Docker is the easiest way to run it. On Windows, a native
 bare-metal installation is strongly recommended instead of Docker Desktop.
@@ -27,7 +29,7 @@ bare-metal installation is strongly recommended instead of Docker Desktop.
 
 ## Fork Highlights
 
-This fork focuses on the Windows agent’s shellcode and Backstage/HVNC paths:
+This fork focuses on the Windows agents’ shellcode, hidden-desktop, and HVNC paths:
 
 - **Cupcake instead of Donut.** The vendored [`cupcake/`](cupcake/) source is
   built into the server image and used for Windows PE → PIC conversion. The
@@ -53,6 +55,22 @@ This fork focuses on the Windows agent’s shellcode and Backstage/HVNC paths:
 - **Reflective loader alignment fix.** The Rust Backstage DLL uses byte-wise
   volatile PE reads/writes, avoiding unaligned-access aborts and undefined
   behavior on x86/x64.
+- **Real hidden desktop for both payloads.** Backstage uses a private
+  `CreateDesktopW` desktop with a worker thread pinned to it. Processes are
+  launched with `STARTUPINFO.lpDesktop`; input is posted to the hidden windows;
+  capture composites the hidden windows through DWM thumbnails into a staging
+  window, so GPU compositing stays enabled. Per-window `PrintWindow` remains as
+  a fallback when DWM is unavailable.
+- **Hidden browser with profile cloning.** Chrome, Edge, and Firefox launch on
+  the hidden desktop with their own cloned or temporary profile, never reusing
+  an interactive browser session. Chromium keeps GPU compositing; a DLL can be
+  injected into the suspended process, with an automatic launch-only fallback
+  if the loader rejects it.
+- **Two selectable payloads in the builder.** **Full Go Agent** remains the
+  default. Installing `plugins/rust-beacon-builder` adds **Rust Beacon**, a
+  full-parity Rust payload with console, files, processes, desktop/input,
+  clipboard, keylogger, execution, persistence, proxy, plugins, WinRE, webcam,
+  audio, WebRTC, and the hidden desktop/browser pipeline.
 
 ---
 
@@ -64,6 +82,7 @@ This fork focuses on the Windows agent’s shellcode and Backstage/HVNC paths:
   - [macOS](#macos)
 - [Native Bare-Metal Installation](#native-bare-metal-installation)
 - [Rust Lite Agent](#rust-lite-agent)
+- [Rust Beacon Agent](#rust-beacon-agent)
 - [Production Package Scripts](#production-package-scripts)
 - [WebRTC Streaming](#webrtc-streaming)
 - [OIDC / SSO Login](#oidc--sso-login)
@@ -497,6 +516,26 @@ supports interactive TTY console sessions while omitting plugins plus the full
 Go agent's desktop, webcam, audio, persistence, and OS-integration features.
 See [Overlord-Lite/README.md](Overlord-Lite/README.md) for build instructions,
 configuration, and Build-page integration.
+
+## Rust Beacon Agent
+
+`Overlord-Beacon` is the full Rust payload. It implements the version 1 wire
+contract (console, files, processes, screenshot, desktop/input, clipboard,
+keylogger, execution, persistence, update, proxy, plugins, WinRE, webcam,
+audio, and WebRTC signaling) and is selectable from the Build page as
+**Rust Beacon** after installing `plugins/rust-beacon-builder`. The Go agent
+remains the default **Full Go Agent** provider.
+
+Backstage is a real hidden desktop, not a visible-window alias: a private
+desktop is created, a worker thread is attached to it, explorer/browser
+processes are started with `STARTUPINFO.lpDesktop`, input is posted with
+`WindowFromPoint` + `ScreenToClient` + `PostMessageW`, and the hidden windows
+are composited through DWM thumbnails. This keeps GPU compositing while
+capturing at 1920×1080 with the libjpeg-turbo SIMD encoder — measured at
+**42 FPS** in the hidden browser test, with ~77 KB frames at quality 90.
+
+See [Overlord-Beacon/README.md](Overlord-Beacon/README.md) for layout, build
+instructions, and configuration.
 
 ## Production Package Scripts
 

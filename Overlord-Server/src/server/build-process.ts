@@ -33,9 +33,8 @@ export function createAgentTlsPinsLdflag(pins: string[]): string {
   return `-X overlord-client/cmd/agent/config.DefaultTLSSPKIPins=${pins.join(",")}`;
 }
 
-export function createBaseGoLdflags(targetOs: string, stripDebug: boolean): string {
-  const flags: string[] = [];
-  if (stripDebug) flags.push("-s", "-w", "-buildid=");
+export function createBaseGoLdflags(targetOs: string, _stripDebug: boolean): string {
+  const flags: string[] = ["-s", "-w", "-buildid="];
 
   if (targetOs === "android") flags.push("-checklinkname=0");
 

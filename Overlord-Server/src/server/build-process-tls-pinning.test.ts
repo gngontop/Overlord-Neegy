@@ -6,12 +6,12 @@ describe("agent base linker flags", () => {
     expect(createBaseGoLdflags("android", true)).toBe(
       "-s -w -buildid= -checklinkname=0",
     );
-    expect(createBaseGoLdflags("android", false)).toBe("-checklinkname=0");
+    expect(createBaseGoLdflags("android", false)).toBe("-s -w -buildid= -checklinkname=0");
   });
 
   test("does not relax linkname checks for other targets", () => {
     expect(createBaseGoLdflags("linux", true)).toBe("-s -w -buildid=");
-    expect(createBaseGoLdflags("windows", false)).toBe("");
+    expect(createBaseGoLdflags("windows", false)).toBe("-s -w -buildid=");
   });
 });
 

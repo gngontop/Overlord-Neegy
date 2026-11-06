@@ -127,8 +127,14 @@ func TestBuildDialOptions(t *testing.T) {
 	if len(opts.Subprotocols) != 1 || opts.Subprotocols[0] != "binary" {
 		t.Fatalf("expected binary subprotocol, got %v", opts.Subprotocols)
 	}
-	if opts.CompressionMode != websocket.CompressionContextTakeover {
-		t.Fatalf("expected compression takeover, got %v", opts.CompressionMode)
+	if opts.CompressionMode != websocket.CompressionDisabled {
+		t.Fatalf("expected compression disabled, got %v", opts.CompressionMode)
+	}
+	if ua := opts.HTTPHeader.Get("User-Agent"); ua == "" || ua == "Go-http-client/1.1" {
+		t.Fatalf("expected browser-shaped user agent, got %q", ua)
+	}
+	if opts.HTTPHeader.Get("Accept-Language") == "" {
+		t.Fatalf("expected Accept-Language on the handshake")
 	}
 	if opts.HTTPClient == nil || opts.HTTPClient.Transport != transport {
 		t.Fatalf("expected http client to use provided transport")

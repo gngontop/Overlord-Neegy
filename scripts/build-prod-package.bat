@@ -6,6 +6,8 @@ set "SERVER_SRC=%ROOT%Overlord-Server"
 set "CLIENT_SRC=%ROOT%Overlord-Client"
 set "LITE_SRC=%ROOT%Overlord-Lite"
 set "LITE_PLUGIN_SRC=%ROOT%plugins\rust-lite-builder"
+set "BEACON_SRC=%ROOT%Overlord-Beacon"
+set "BEACON_PLUGIN_SRC=%ROOT%plugins\rust-beacon-builder"
 set "RELEASE_DIR=%ROOT%release"
 
 if not exist "%SERVER_SRC%\package.json" (
@@ -70,11 +72,19 @@ if errorlevel 1 goto :err
 echo [7/11] Exporting Overlord-Client source for runtime builds...
 robocopy "%CLIENT_SRC%" "%RELEASE_DIR%\Overlord-Client" /E /XD build .git .vscode >nul
 if errorlevel 8 goto :robocopy_err
+robocopy "%ROOT%protocol" "%RELEASE_DIR%\protocol" /E >nul
+if errorlevel 8 goto :robocopy_err
 
-echo [8/11] Exporting Overlord-Lite source and Rust builder plugin...
+echo [8/11] Exporting Rust agent sources and builder plugins...
 robocopy "%LITE_SRC%" "%RELEASE_DIR%\Overlord-Lite" /E /XD target .git .vscode >nul
 if errorlevel 8 goto :robocopy_err
 robocopy "%LITE_PLUGIN_SRC%" "%RELEASE_DIR%\plugins\rust-lite-builder" /E /XD data /XF rust-lite-builder.zip >nul
+if errorlevel 8 goto :robocopy_err
+if exist "%BEACON_SRC%\Cargo.toml" (
+  robocopy "%BEACON_SRC%" "%RELEASE_DIR%\Overlord-Beacon" /E /XD target .git .vscode >nul
+  if errorlevel 8 goto :robocopy_err
+)
+robocopy "%BEACON_PLUGIN_SRC%" "%RELEASE_DIR%\plugins\rust-beacon-builder" /E /XD data /XF rust-beacon-builder.zip >nul
 if errorlevel 8 goto :robocopy_err
 
 echo [9/11] Copying required public web assets...

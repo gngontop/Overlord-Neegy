@@ -23,10 +23,12 @@ Overlord-Desktop/src-tauri/target/
 Overlord-Desktop/src-tauri/gen/
 Overlord-Desktop/src-tauri/Cargo.lock
 /Overlord-Lite/target/
+/Overlord-Beacon/target/
 
 # Configuration
 config.json
 !plugins/rust-lite-builder/config.json
+!plugins/rust-beacon-builder/config.json
 
 # Docker
 .env

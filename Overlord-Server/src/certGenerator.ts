@@ -26,19 +26,29 @@ const COUNTRY_CODES = [
   "IS", "IT", "JP", "NL", "NO", "NZ", "PL", "PT", "SE", "SG", "US",
 ];
 
-function randomLabel(prefix: string, bytes = 6): string {
-  return `${prefix}-${randomBytes(bytes).toString("hex")}`;
+const STATE_NAMES = ["California", "Texas", "New York", "Washington", "Oregon", "Colorado", "Virginia", "Massachusetts", "Illinois", "Georgia"];
+const CITY_NAMES = ["Springfield", "Riverside", "Fairview", "Greenville", "Clinton", "Madison", "Georgetown", "Salem", "Brookfield", "Ashland"];
+const ORG_NAMES = ["Northwind", "Contoso", "Fabrikam", "Initech", "Acme", "Globex", "Soylent", "Vandelay", "Hooli", "Pied Piper"];
+const UNIT_NAMES = ["IT", "Engineering", "Operations", "Infrastructure", "Platform", "Networking"];
+const HOST_WORDS = ["edge", "relay", "gateway", "sync", "media", "update", "auth", "cache"];
+const TLDS = ["com", "net", "cloud", "io", "dev"];
+
+function pick<T>(values: T[]): T {
+  return values[randomBytes(1)[0] % values.length];
+}
+
+function randomLabel(): string {
+  return randomBytes(4).toString("hex");
 }
 
 export function generateRandomSelfSignedSubject(): SelfSignedSubject {
-  const country = COUNTRY_CODES[randomBytes(1)[0] % COUNTRY_CODES.length];
   return {
-    country,
-    state: randomLabel("Region"),
-    locality: randomLabel("Zone"),
-    organization: randomLabel("Service", 8),
-    organizationalUnit: randomLabel("Node", 8),
-    commonName: `${randomLabel("host", 8)}.invalid`,
+    country: pick(COUNTRY_CODES),
+    state: pick(STATE_NAMES),
+    locality: pick(CITY_NAMES),
+    organization: `${pick(ORG_NAMES)} ${pick(["Systems", "Networks", "Labs", "Group", "Digital"])}`,
+    organizationalUnit: pick(UNIT_NAMES),
+    commonName: `${pick(HOST_WORDS)}-${randomLabel()}.${pick(TLDS)}`,
   };
 }
 

