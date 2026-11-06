@@ -145,6 +145,7 @@ type BuildProcessConfig = {
   cupcakeSingleThreaded?: boolean;
   cupcakeExitMode?: number;
   cupcakeEntropy?: number;
+  cupcakeBypass?: number;
   cupcakePreserveHeaders?: boolean;
   cupcakeResumeOffset?: number;
   useLinuxShellcode?: boolean;
@@ -2160,6 +2161,7 @@ func runBoundFiles() {
             singleThreaded: config.cupcakeSingleThreaded,
             exitMode: config.cupcakeExitMode,
             entropy: config.cupcakeEntropy,
+            bypass: config.cupcakeBypass,
             preserveHeaders: config.cupcakePreserveHeaders,
             resumeOffset: config.cupcakeResumeOffset,
           });

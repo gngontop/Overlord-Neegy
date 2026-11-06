@@ -52,6 +52,7 @@ export type BuildConfig = {
   cupcakeSingleThreaded?: boolean;
   cupcakeExitMode?: number;
   cupcakeEntropy?: number;
+  cupcakeBypass?: number;
   cupcakePreserveHeaders?: boolean;
   cupcakeResumeOffset?: number;
   useLinuxShellcode?: boolean;

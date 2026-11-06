@@ -857,6 +857,21 @@
                             <option value="3">3 — Random names + encrypt</option>
                           </select>
                         </div>
+                        <div class="flex items-center gap-2 px-3 py-1.5 rounded bg-slate-800/60 border border-slate-600/40 text-xs text-slate-300">
+                          <i class="fa-solid fa-shield-halved text-slate-400"></i>
+                          <label for="cupcake-bypass" class="shrink-0">AMSI/WLDP/ETW (<code>-b</code>):</label>
+                          <select id="cupcake-bypass" name="cupcake-bypass" class="bg-slate-700 border border-slate-500 rounded px-1.5 py-0.5 text-xs text-slate-200">
+                            <option value="">Default (1 — none; SGN handles evasion)</option>
+                            <option value="1">1 — None (SGN/caller handles evasion)</option>
+                            <option value="2">2 — Abort if bypass fails</option>
+                            <option value="3">3 — Continue if bypass fails (Cupcake VEH/DR bypass)</option>
+                          </select>
+                        </div>
+                        <div class="px-3 text-[11px] leading-relaxed text-slate-500">
+                          <code>-b 1</code> leaves AMSI/WLDP/ETW bypass entirely to SGN or the caller.
+                          <code>-b 2</code>/<code>-b 3</code> enable Cupcake’s own bypass; <code>3</code> keeps running if a patch fails, while <code>2</code> aborts the payload.
+                          <code>3</code> uses the patchless VEH + hardware-breakpoint path when possible.
+                        </div>
                         <label class="flex items-center gap-2 px-3 py-1.5 rounded bg-slate-800/60 border border-slate-600/40 text-xs text-slate-300 cursor-pointer hover:border-slate-400 transition-colors">
                           <input type="checkbox" id="cupcake-preserve-headers" name="cupcake-preserve-headers" class="w-3.5 h-3.5" />
                           <i class="fa-solid fa-heading text-slate-400"></i>

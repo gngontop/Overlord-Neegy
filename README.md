@@ -40,9 +40,11 @@ This fork focuses on the Windows agent’s shellcode and Backstage/HVNC paths:
   hardware breakpoints on `NtTraceEvent` (with `EtwEventWrite` as a fallback),
   so ntdll is not modified when debug registers are available. A minimal inline
   syscall-stub patch remains as a compatibility fallback.
-  Overlord’s SGN pipeline invokes Cupcake with `-b 1` (`runCupcake` in
-  `cupcake-manager.ts`), so SGN remains the outer evasion layer and Cupcake’s
-  own AMSI/WLDP/ETW bypass is intentionally off. Use `-b 3` for both layers.
+  The Build page exposes this as the **AMSI/WLDP/ETW (`-b`)** selector:
+  `1` = none (SGN/caller handles evasion), `2` = abort if a bypass fails,
+  `3` = continue if a bypass fails. Overlord’s existing SGN pipeline defaults
+  to `-b 1` (`runCupcake` in `cupcake-manager.ts`), so SGN remains the outer
+  evasion layer; select `3` to enable Cupcake’s own bypass as well.
 - **Backstage browser injection fixes.** Browser executables are quoted for
   `CreateProcessW` (paths such as `C:\Program Files\...` now launch correctly),
   Chromium/Firefox arguments are handled per-browser, Chromium handoff exit

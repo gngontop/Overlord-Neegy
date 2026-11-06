@@ -558,6 +558,7 @@ function setBuildField(field, value) {
     cupcakeSingleThreaded: "#cupcake-single-threaded",
     cupcakeExitMode: "#cupcake-exit-mode",
     cupcakeEntropy: "#cupcake-entropy",
+    cupcakeBypass: "#cupcake-bypass",
     cupcakePreserveHeaders: "#cupcake-preserve-headers",
     cupcakeResumeOffset: "#cupcake-resume-offset",
     // Pre-Cupcake names (saved forms, third-party build plugins).
@@ -565,6 +566,7 @@ function setBuildField(field, value) {
     donutSingleThreaded: "#cupcake-single-threaded",
     donutExitMode: "#cupcake-exit-mode",
     donutEntropy: "#cupcake-entropy",
+    donutBypass: "#cupcake-bypass",
     donutPreserveHeaders: "#cupcake-preserve-headers",
     donutResumeOffset: "#cupcake-resume-offset",
     useLinuxShellcode: "#linux-shellcode-mode",
@@ -889,6 +891,7 @@ function collectFormSettings() {
     cupcakeSingleThreaded: document.getElementById("cupcake-single-threaded")?.checked ?? false,
     cupcakeExitMode: parseInt(document.getElementById("cupcake-exit-mode")?.value, 10) || undefined,
     cupcakeEntropy: parseInt(document.getElementById("cupcake-entropy")?.value, 10) || undefined,
+    cupcakeBypass: parseInt(document.getElementById("cupcake-bypass")?.value, 10) || undefined,
     cupcakePreserveHeaders: document.getElementById("cupcake-preserve-headers")?.checked ?? false,
     cupcakeResumeOffset: parseInt(document.getElementById("cupcake-resume-offset")?.value, 10) || undefined,
     useLinuxShellcode: document.getElementById("linux-shellcode-mode")?.checked ?? false,
@@ -975,6 +978,7 @@ function applyFormSettings(settings) {
   const cupcakeSingleThreaded = settings.cupcakeSingleThreaded ?? settings.donutSingleThreaded;
   const cupcakeExitMode = settings.cupcakeExitMode ?? settings.donutExitMode;
   const cupcakeEntropy = settings.cupcakeEntropy ?? settings.donutEntropy;
+  const cupcakeBypass = settings.cupcakeBypass ?? settings.donutBypass;
   const cupcakePreserveHeaders = settings.cupcakePreserveHeaders ?? settings.donutPreserveHeaders;
   const cupcakeResumeOffset = settings.cupcakeResumeOffset ?? settings.donutResumeOffset;
   if (cupcakeMode !== undefined) {
@@ -984,6 +988,7 @@ function applyFormSettings(settings) {
   if (cupcakeSingleThreaded !== undefined) setCb("#cupcake-single-threaded", cupcakeSingleThreaded);
   if (cupcakeExitMode !== undefined) setVal("cupcake-exit-mode", cupcakeExitMode);
   if (cupcakeEntropy !== undefined) setVal("cupcake-entropy", cupcakeEntropy);
+  if (cupcakeBypass !== undefined) setVal("cupcake-bypass", cupcakeBypass);
   if (cupcakePreserveHeaders !== undefined) setCb("#cupcake-preserve-headers", cupcakePreserveHeaders);
   if (cupcakeResumeOffset !== undefined) setVal("cupcake-resume-offset", cupcakeResumeOffset);
   if (settings.useLinuxShellcode !== undefined) {
@@ -2271,6 +2276,7 @@ form?.addEventListener("submit", async (e) => {
     cupcakeSingleThreaded: document.getElementById("cupcake-single-threaded")?.checked || false,
     cupcakeExitMode: parseInt(document.getElementById("cupcake-exit-mode")?.value, 10) || undefined,
     cupcakeEntropy: parseInt(document.getElementById("cupcake-entropy")?.value, 10) || undefined,
+    cupcakeBypass: parseInt(document.getElementById("cupcake-bypass")?.value, 10) || undefined,
     cupcakePreserveHeaders: document.getElementById("cupcake-preserve-headers")?.checked || false,
     cupcakeResumeOffset: parseInt(document.getElementById("cupcake-resume-offset")?.value, 10) || undefined,
     useLinuxShellcode: document.getElementById("linux-shellcode-mode")?.checked || false,

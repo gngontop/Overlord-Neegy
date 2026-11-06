@@ -222,7 +222,10 @@ export async function ensureCupcake(
  *          APIs and only work when Cupcake runs on a Windows host. We pick the
  *          best available for the host: -z 3 (LZNT1) on Windows, -z 2 (aPLib,
  *          cross-platform) elsewhere.
- *   -b 1   no AMSI/WLDP/ETW bypass — caller is responsible for evasion (e.g. SGN)
+ *   -b N   AMSI/WLDP/ETW bypass level (optional, default 1)
+ *          1 = none — caller/SGN is responsible for evasion
+ *          2 = abort the payload if a bypass fails
+ *          3 = continue if a bypass fails (Cupcake VEH/hardware-breakpoint path)
  *   -t     single-threaded shellcode (optional, off by default)
  *   -x N   exit mode (optional, default cupcake internal: 1=exit thread)
  *          1 = exit thread, 2 = exit process, 3 = don't exit
@@ -261,7 +264,7 @@ export async function runCupcake(
   outputBin: string,
   arch: "amd64" | "386",
   sendToStream: (data: any) => void,
-  opts?: { singleThreaded?: boolean; exitMode?: number; entropy?: number; preserveHeaders?: boolean; resumeOffset?: number },
+  opts?: { singleThreaded?: boolean; exitMode?: number; entropy?: number; bypass?: number; preserveHeaders?: boolean; resumeOffset?: number },
 ): Promise<boolean> {
   const bin = await ensureCupcake(sendToStream);
   if (!bin) {
@@ -271,6 +274,7 @@ export async function runCupcake(
 
   const archFlag = arch === "386" ? "1" : "2";
   const compressFlag = process.platform === "win32" ? "3" : "2";
+  const bypass = opts?.bypass === 2 || opts?.bypass === 3 ? opts.bypass : 1;
   const extraFlags: string[] = [];
   if (opts?.singleThreaded) extraFlags.push("-t");
   if (opts?.exitMode !== undefined) extraFlags.push("-x", String(opts.exitMode));
@@ -282,7 +286,7 @@ export async function runCupcake(
 
   try {
     // -i flag required since cupcake v1 (previously positional arg)
-    const result = await $`${bin} -a ${archFlag} -z ${compressFlag} -f 1 -b 1 ${extraFlags} -o ${outputBin} -i ${inputPe}`
+    const result = await $`${bin} -a ${archFlag} -z ${compressFlag} -f 1 -b ${String(bypass)} ${extraFlags} -o ${outputBin} -i ${inputPe}`
       .nothrow()
       .quiet();
     const stdout = result.stdout.toString().trim();
