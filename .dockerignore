@@ -63,7 +63,3 @@ release/
 # Logs
 **/*.log
 **/logs/
-
-# Fritter transient build products
-fritter/.fritter-build/
-fritter/**/*.exe

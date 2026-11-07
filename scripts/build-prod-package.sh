@@ -79,7 +79,6 @@ mkdir -p "$RELEASE_DIR"
 echo "[4/6] Exporting Overlord-Server..."
 copy_tree_excluding "$SERVER_SRC" "$RELEASE_DIR/Overlord-Server" "node_modules" ".git" ".vscode"
 copy_tree_excluding "$ROOT/protocol" "$RELEASE_DIR/protocol"
-copy_tree_excluding "$ROOT/fritter" "$RELEASE_DIR/fritter" ".git" ".fritter-build" "dist"
 
 echo "[5/6] Exporting Overlord-Client source for runtime builds..."
 copy_tree_excluding "$CLIENT_SRC" "$RELEASE_DIR/Overlord-Client" "build" ".git" ".vscode"

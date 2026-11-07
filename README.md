@@ -36,10 +36,12 @@ This fork focuses on the Windows agents’ shellcode, hidden-desktop, and HVNC p
   generator is also built from source at runtime when a system binary is not
   available.
 - **Fritter shellcode fallback.** The Build page can emit Windows x64
-  shellcode with the vendored [`fritter/`](fritter/) generator instead of
-  Cupcake. Fritter rebuilds its loader constants per build and randomizes each
-  output; when Cupcake is quarantined by Defender the builder retries with
-  Fritter automatically. Fritter is x64-only, so `windows-386` stays on Cupcake.
+  shellcode with the pinned Fritter `v1.3` release instead of Cupcake. The
+  release binary is SHA-256 verified, bundled into the Linux amd64 image, and
+  downloaded into the data directory on other supported hosts; the source is
+  not vendored. Fritter randomizes each output, and when Cupcake is quarantined
+  by Defender the builder retries with Fritter automatically. Fritter is
+  x64-only, so `windows-386` stays on Cupcake.
 - **Hardened Cupcake loader.** Exact byte patches instead of copied C stub
   functions, bounded AMSI/WLDP scans, safe DLL-name resolution, sensitive
   instance/key/flag wiping, and regenerated x86/x64 loader stubs.

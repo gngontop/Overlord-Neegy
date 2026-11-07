@@ -20,7 +20,6 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         gcc-mingw-w64-x86-64 \
         g++-mingw-w64-x86-64 \
         gcc-mingw-w64-i686 \
-        musl-tools \
         ca-certificates \
         wget \
         curl \
@@ -70,15 +69,17 @@ RUN (cd cupcake && gcc -Wunused-function -Wall -fpack-struct=8 -DDONUT_EXE -I in
     && echo "Cupcake compiled from vendored source" \
     || echo "WARNING: Cupcake build failed (host arch may not match lib/aplib64.a) — shellcode builds will need a system cupcake binary"
 
-# Compile the Fritter x64 shellcode generator from the vendored source. The
-# runtime keeps the source so fritter-manager.ts can rebuild it when a compiler
-# is available; otherwise it falls back to this prebuilt system binary.
-COPY fritter/ ./fritter/
-RUN (cd fritter && make -f Makefile.linux) \
-    && cp fritter/fritter /usr/local/bin/fritter \
-    && chmod +x /usr/local/bin/fritter \
-    && echo "Fritter compiled from vendored source" \
-    || echo "WARNING: Fritter build failed — shellcode builds will fall back to Cupcake"
+# Fritter v1.3 is consumed as a pinned release binary, not vendored source.
+# The release has no linux-arm64 asset; ARM images build and use Cupcake.
+ARG TARGETARCH
+RUN mkdir -p /opt/fritter && \
+    if [ "${TARGETARCH:-amd64}" = "amd64" ]; then \
+        wget -q "https://github.com/0xROOTPLS/Fritter/releases/download/v1.3/fritter-linux-x64" -O /opt/fritter/fritter && \
+        echo "dc83d66a9ae30903e5ad238b5db437bece366708285101b84173f0e826a81d65  /opt/fritter/fritter" | sha256sum -c - && \
+        chmod +x /opt/fritter/fritter; \
+    else \
+        echo "Fritter v1.3 has no linux-${TARGETARCH} release; use Cupcake on this architecture." > /opt/fritter/UNSUPPORTED; \
+    fi
 
 # Pre-fetch the latest Rust SGN (Shikata Ga Nai) binary. The Rust releases use
 # target-triple tarballs instead of the legacy sgn_linux_amd64_*.zip naming.
@@ -179,10 +180,9 @@ COPY --from=builder /usr/local/bin/cupcake /usr/local/bin/cupcake
 # the converter from source (it looks for <root>/cupcake) when the prebuilt
 # binary is missing or unusable, instead of failing shellcode builds outright.
 COPY cupcake/ ./cupcake/
-# Fritter generator + source. The prebuilt binary covers hosts without a
-# compiler; the source lets fritter-manager.ts refresh per-build constants.
-COPY --from=builder /usr/local/bin/fritter /usr/local/bin/fritter
-COPY fritter/ ./fritter/
+# Fritter v1.3 release binary (amd64 only; see builder stage).
+COPY --from=builder /opt/fritter /opt/fritter
+RUN if [ -x /opt/fritter/fritter ]; then ln -sf /opt/fritter/fritter /usr/local/bin/fritter; fi
 
 ENV PATH="/usr/local/go/bin:/go/bin:${PATH}"
 ENV GOPATH="/app/client-build-cache/go"
