@@ -201,6 +201,10 @@ COPY --from=builder /usr/local/rustup /usr/local/rustup
 COPY --from=builder /usr/local/cargo /usr/local/cargo
 ENV RUSTUP_HOME=/usr/local/rustup
 ENV CARGO_HOME=/app/client-build-cache/cargo
+# Cross C/C++ tools for Rust's x86_64-pc-windows-gnu target.
+ENV CC_x86_64_pc_windows_gnu=x86_64-w64-mingw32-gcc
+ENV CXX_x86_64_pc_windows_gnu=x86_64-w64-mingw32-g++
+ENV AR_x86_64_pc_windows_gnu=x86_64-w64-mingw32-ar
 
 # Cupcake shellcode converter (amd64 only; see builder stage). The vendored
 # source stays available for cupcake-manager.ts on hosts that can compile it.
