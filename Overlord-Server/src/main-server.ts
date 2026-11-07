@@ -244,7 +244,10 @@ const PLUGIN_ROOT = process.env.OVERLORD_PLUGIN_ROOT?.trim()
 // Built-in plugin bundles live outside PLUGIN_ROOT because Docker mounts a
 // persistent volume over /app/plugins. Seed missing bundles at startup so the
 // Rust builders are available on a fresh compose-only install.
-const BUILTIN_PLUGIN_ROOT = path.join(RUNTIME_ROOT, "builtin-plugins");
+const BUILTIN_PLUGIN_ROOTS = [
+  path.join(RUNTIME_ROOT, "builtin-plugins"),
+  path.join(RUNTIME_ROOT, "Overlord-Server", "builtin-plugins"),
+];
 const PLUGIN_STATE_PATH = path.join(PLUGIN_ROOT, ".plugin-state.json");
 const DATA_DIR = ensureDataDir();
 const DEPLOY_ROOT = path.join(DATA_DIR, "deploy");
@@ -451,12 +454,14 @@ const pendingCommandReplies = new Map<string, PendingCommandReply>();
 async function seedBuiltinPlugins(): Promise<void> {
   try {
     await fs.mkdir(PLUGIN_ROOT, { recursive: true });
-    const entries = await fs.readdir(BUILTIN_PLUGIN_ROOT, { withFileTypes: true });
+    const sourceRoot = BUILTIN_PLUGIN_ROOTS.find((candidate) => existsSync(candidate));
+    if (!sourceRoot) return;
+    const entries = await fs.readdir(sourceRoot, { withFileTypes: true });
     for (const entry of entries) {
       if (!entry.isFile() || !entry.name.toLowerCase().endsWith(".zip")) continue;
       const destination = path.join(PLUGIN_ROOT, entry.name);
       if (existsSync(destination)) continue;
-      await fs.copyFile(path.join(BUILTIN_PLUGIN_ROOT, entry.name), destination);
+      await fs.copyFile(path.join(sourceRoot, entry.name), destination);
     }
   } catch (error) {
     logger.warn(`[plugin] builtin seed failed: ${error instanceof Error ? error.message : String(error)}`);
