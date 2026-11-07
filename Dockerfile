@@ -59,15 +59,18 @@ RUN wget -q "https://sh.rustup.rs" -O rustup-init.sh \
     && rm -f rustup-init.sh
 ENV PATH="/usr/local/cargo/bin:${PATH}"
 
-# Compile the Cupcake shellcode converter (maintained donut fork, vendored in
-# cupcake/) from the bundled source. The runtime cupcake-manager prefers a
-# system binary and recompiles from the vendored source as fallback; this step
-# just guarantees a working binary is available offline on first use.
+# Cupcake's vendored aPLib library is x86-64. Build it for amd64 and leave a
+# marker on other architectures so the runtime COPY below always succeeds;
+# those images keep the source but have no usable Cupcake binary.
 COPY cupcake/ ./cupcake/
-RUN (cd cupcake && gcc -Wunused-function -Wall -fpack-struct=8 -DDONUT_EXE -I include donut.c hash.c encrypt.c format.c loader/clib.c lib/aplib64.a -o /usr/local/bin/cupcake) \
-    && chmod +x /usr/local/bin/cupcake \
-    && echo "Cupcake compiled from vendored source" \
-    || echo "WARNING: Cupcake build failed (host arch may not match lib/aplib64.a) — shellcode builds will need a system cupcake binary"
+ARG TARGETARCH
+RUN mkdir -p /opt/cupcake && \
+    if [ "${TARGETARCH:-amd64}" = "amd64" ]; then \
+        (cd cupcake && gcc -Wunused-function -Wall -fpack-struct=8 -DDONUT_EXE -I include donut.c hash.c encrypt.c format.c loader/clib.c lib/aplib64.a -o /opt/cupcake/cupcake) && \
+        chmod +x /opt/cupcake/cupcake; \
+    else \
+        echo "Cupcake is unavailable on linux-${TARGETARCH}; the vendored aPLib library is x86-64." > /opt/cupcake/UNSUPPORTED; \
+    fi
 
 # Fritter v1.3 is consumed as a pinned release binary, not vendored source.
 # The release has no linux-arm64 asset; ARM images build and use Cupcake.
@@ -174,11 +177,10 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 COPY --from=builder /usr/local/go /usr/local/go
 COPY --from=builder /go/bin/garble /go/bin/garble
 
-# Cupcake shellcode converter compiled from the vendored source (see above).
-COPY --from=builder /usr/local/bin/cupcake /usr/local/bin/cupcake
-# Vendored source kept in the runtime image so cupcake-manager.ts can rebuild
-# the converter from source (it looks for <root>/cupcake) when the prebuilt
-# binary is missing or unusable, instead of failing shellcode builds outright.
+# Cupcake shellcode converter (amd64 only; see builder stage). The vendored
+# source stays available for cupcake-manager.ts on hosts that can compile it.
+COPY --from=builder /opt/cupcake /opt/cupcake
+RUN if [ -x /opt/cupcake/cupcake ]; then ln -sf /opt/cupcake/cupcake /usr/local/bin/cupcake; fi
 COPY cupcake/ ./cupcake/
 # Fritter v1.3 release binary (amd64 only; see builder stage).
 COPY --from=builder /opt/fritter /opt/fritter
