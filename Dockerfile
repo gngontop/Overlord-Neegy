@@ -176,6 +176,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         nasm \
         perl \
         pkg-config \
+        libclang-dev \
         libssl-dev \
         libasound2-dev \
         libudev-dev \
