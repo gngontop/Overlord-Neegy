@@ -1,5 +1,12 @@
 # Install And Manage Plugins
 
+## Built-in Builders
+
+`rust-beacon-builder` and `rust-lite-builder` ship as built-in bundles in
+`Overlord-Server/builtin-plugins/`. The server seeds them into the plugin volume
+on first start, so **Rust Beacon** and **Rust Lite** appear in the Build page
+without an upload.
+
 ## Install Or Upload
 
 Install a plugin by uploading its zip from the Plugins page or placing the zip under `Overlord-Server/plugins`. The server extracts the bundle, generates `manifest.json`, and copies browser assets into the plugin assets directory.

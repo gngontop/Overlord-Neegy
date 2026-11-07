@@ -16,7 +16,9 @@ real hidden-desktop/hidden-browser path described below.
 
 The server is TypeScript on Node/Bun. The agents are Go and Rust. Operators talk to
 the server through a web panel or the Electron desktop app, and agents connect over
-encrypted WebSockets.
+encrypted WebSockets. The container image includes Cargo and both Rust agent
+sources, so **Rust Beacon** and **Rust Lite** appear in the builder without a
+repository clone or plugin upload.
 
 On Linux, Docker is the easiest way to run it. On Windows, a native
 bare-metal installation is strongly recommended instead of Docker Desktop.
@@ -129,9 +131,10 @@ native installation or move the server to Linux.
 >
 > Only the compose file is required. `docker compose up -d` pulls
 > `ghcr.io/gngontop/overlord-neegy:latest` (or `DOCKER_IMAGE`) every time; the
-> image already contains the server, client sources, Cupcake/Fritter, and build
-> tooling. If the GHCR package is private, run `docker login ghcr.io` once.
-> For local source builds use the optional `docker-compose.build.yml` override.
+> image already contains the server, Go/Rust agent sources, Cupcake/Fritter,
+> Cargo, and the built-in Rust builder plugins. If the GHCR package is private,
+> run `docker login ghcr.io` once. For local source builds use the optional
+> `docker-compose.build.yml` override.
 
 After the first start, open `https://localhost:5173`. The default username is
 `admin`. Unless you set `OVERLORD_PASS`, first startup generates a one-time

@@ -539,3 +539,7 @@ Overlord-Client/third_party/onevpl
 # image and used by Overlord-Server/src/server/cupcake-manager.ts. Bypass the
 # *.exe / *.lib / *.dll rules so the whole vendored tree ships intact.
 !cupcake/**
+
+# Built-in plugin bundles shipped with the server image
+!Overlord-Server/builtin-plugins/
+!Overlord-Server/builtin-plugins/*.zip

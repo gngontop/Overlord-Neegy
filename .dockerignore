@@ -63,3 +63,7 @@ release/
 # Logs
 **/*.log
 **/logs/
+
+# Rust build artifacts (keep the Docker context small)
+Overlord-Beacon/target/
+Overlord-Lite/target/

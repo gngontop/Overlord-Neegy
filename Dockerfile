@@ -39,7 +39,7 @@ RUN case "${TARGETARCH:-amd64}" in \
     && rm "go${GO_VERSION}.linux-${GO_ARCH}.tar.gz" \
     && rm -rf /usr/local/go/test /usr/local/go/api /usr/local/go/doc /usr/local/go/misc
 
-ENV PATH="/usr/local/go/bin:/go/bin:${PATH}"
+ENV PATH="/usr/local/go/bin:/go/bin:/usr/local/cargo/bin:${PATH}"
 ENV GOPATH="/go"
 ENV GOCACHE=/root/.cache/go-build
 ENV GOMODCACHE=/go/pkg/mod
@@ -52,7 +52,7 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
 # `--target x86_64-pc-windows-gnu` also installs that target's rust-std.
 ENV RUSTUP_HOME=/usr/local/rustup \
     CARGO_HOME=/usr/local/cargo \
-    RUST_VERSION=1.85.0
+    RUST_VERSION=1.95.0
 RUN wget -q "https://sh.rustup.rs" -O rustup-init.sh \
     && sh rustup-init.sh -y --default-toolchain "$RUST_VERSION" \
        --profile minimal --target x86_64-pc-windows-gnu \
@@ -171,11 +171,36 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         ffmpeg \
         clang \
         lld \
+        build-essential \
+        cmake \
+        nasm \
+        perl \
+        pkg-config \
+        libssl-dev \
+        libasound2-dev \
+        libudev-dev \
+        libv4l-dev \
+        libx11-dev \
+        libxcb1-dev \
+        libxrandr-dev \
+        libxi-dev \
+        libxinerama-dev \
+        libxcursor-dev \
+        gcc-mingw-w64-x86-64 \
+        g++-mingw-w64-x86-64 \
     && rm -rf /var/lib/apt/lists/*
 
 # Reuse Go + garble from the builder so we don't re-download.
 COPY --from=builder /usr/local/go /usr/local/go
 COPY --from=builder /go/bin/garble /go/bin/garble
+
+# Rust toolchain for the on-demand Rust Beacon/Lite builders. Cargo's registry
+# and target directories live in the writable client-build-cache volume; the
+# rustup toolchain itself stays read-only.
+COPY --from=builder /usr/local/rustup /usr/local/rustup
+COPY --from=builder /usr/local/cargo /usr/local/cargo
+ENV RUSTUP_HOME=/usr/local/rustup
+ENV CARGO_HOME=/app/client-build-cache/cargo
 
 # Cupcake shellcode converter (amd64 only; see builder stage). The vendored
 # source stays available for cupcake-manager.ts on hosts that can compile it.
@@ -186,7 +211,7 @@ COPY cupcake/ ./cupcake/
 COPY --from=builder /opt/fritter /opt/fritter
 RUN if [ -x /opt/fritter/fritter ]; then ln -sf /opt/fritter/fritter /usr/local/bin/fritter; fi
 
-ENV PATH="/usr/local/go/bin:/go/bin:${PATH}"
+ENV PATH="/usr/local/go/bin:/go/bin:/usr/local/cargo/bin:${PATH}"
 ENV GOPATH="/app/client-build-cache/go"
 ENV GOCACHE=/app/client-build-cache/go-build
 ENV GOMODCACHE=/app/client-build-cache/go-mod
@@ -208,13 +233,23 @@ COPY Overlord-Client/ ./Overlord-Client/
 COPY Overlord-Client/ /opt/overlord-client-source/
 RUN test -s ./Overlord-Client/third_party/nvcodec/nvEncodeAPI.h
 
+# Rust agent sources needed by the built-in Rust builder providers. Their
+# build.rs scripts read ../protocol/wire-contract.json.
+COPY Overlord-Beacon/ ./Overlord-Beacon/
+COPY Overlord-Lite/ ./Overlord-Lite/
+COPY protocol/ ./protocol/
+# First-party builder plugins are seeded into the persistent /app/plugins
+# volume at startup (the volume hides image contents at the mount path).
+COPY Overlord-Server/builtin-plugins/ ./builtin-plugins/
+
 # Rust crate + build script needed for on-demand Backstage DLL recompilation
 # (re-randomized loader export) at runtime.
 COPY BackstageInjection-Rust/ ./BackstageInjection-Rust/
 COPY scripts/build-backstage-dll.sh ./scripts/
 COPY scripts/docker-runtime-entrypoint.sh /usr/local/bin/overlord-entrypoint
 
-RUN mkdir -p certs data client-build-cache plugins dist-clients \
+RUN mkdir -p certs data client-build-cache cargo-cache plugins dist-clients \
+    && mkdir -p /app/client-build-cache/cargo \
     && chmod 0755 /usr/local/bin/overlord-entrypoint \
     && chown -R bun:bun \
         /app/certs \
@@ -223,6 +258,8 @@ RUN mkdir -p certs data client-build-cache plugins dist-clients \
         /app/plugins \
         /app/dist-clients \
         /app/Overlord-Client \
+        /app/Overlord-Beacon \
+        /app/Overlord-Lite \
         /app/BackstageInjection-Rust
 
 # Warm BuildKit's module cache so image rebuilds do not re-download unchanged
