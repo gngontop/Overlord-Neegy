@@ -856,6 +856,84 @@ export async function startBuildProcess(
             }
           }
         }
+        if (
+          (config.useCupcake || config.useFritter) &&
+          finalFile.platform.startsWith("windows-") &&
+          !finalFile.filename.toLowerCase().endsWith(".bin")
+        ) {
+          const windowsArch = finalFile.platform.split("-")[1];
+          if (windowsArch !== "amd64" && windowsArch !== "386") {
+            throw new Error(`Shellcode conversion supports windows-amd64 and windows-386 only (got ${finalFile.platform})`);
+          }
+          const inputPath = path.join(outDir, finalFile.filename);
+          const binName = deps.sanitizeOutputName(`${finalFile.filename.replace(/\.[^.]+$/, "")}.bin`);
+          const binPath = path.join(outDir, binName);
+          const shellcodeOptions = {
+            singleThreaded: config.cupcakeSingleThreaded,
+            exitMode: config.cupcakeExitMode,
+            entropy: config.cupcakeEntropy,
+            preserveHeaders: config.cupcakePreserveHeaders,
+            resumeOffset: config.cupcakeResumeOffset,
+          };
+          let generator: "cupcake" | "fritter" = config.useFritter ? "fritter" : "cupcake";
+          sendToStream({
+            type: "output",
+            text: `\nConverting provider artifact to shellcode with ${generator === "fritter" ? "Fritter" : "Cupcake"}...\n`,
+            level: "info",
+          });
+          let converted = generator === "fritter"
+            ? await runFritter(inputPath, binPath, sendToStream, shellcodeOptions)
+            : await runCupcake(inputPath, binPath, windowsArch, sendToStream, {
+                ...shellcodeOptions,
+                bypass: config.cupcakeBypass,
+              });
+          if (!converted && generator === "cupcake" && windowsArch === "amd64") {
+            sendToStream({
+              type: "output",
+              text: "Cupcake failed — retrying provider artifact with Fritter…\n",
+              level: "warn",
+            });
+            generator = "fritter";
+            converted = await runFritter(inputPath, binPath, sendToStream, shellcodeOptions);
+          }
+          if (!converted) {
+            throw new Error(`${generator === "fritter" ? "Fritter" : "Cupcake"} shellcode conversion failed for ${finalFile.platform}`);
+          }
+          try { fs.unlinkSync(inputPath); } catch {}
+          finalFile = {
+            ...finalFile,
+            filename: binName,
+            size: fs.statSync(binPath).size,
+          };
+
+          if (config.useSgn) {
+            const iterations = Math.max(1, Math.min(50, Math.floor(config.sgnIterations ?? 1)));
+            const sgnName = deps.sanitizeOutputName(`${finalFile.filename}.sgn`);
+            const sgnPath = path.join(outDir, sgnName);
+            sendToStream({
+              type: "output",
+              text: `Encoding provider shellcode with SGN (${iterations} iteration${iterations === 1 ? "" : "s"})...\n`,
+              level: "info",
+            });
+            const sgnOk = await runSgn(binPath, sgnPath, windowsArch, iterations, sendToStream);
+            if (!sgnOk) throw new Error(`SGN encoding failed for ${finalFile.platform}`);
+            try { fs.unlinkSync(binPath); } catch {}
+            if (config.outputSgnTxt) {
+              const txtName = deps.sanitizeOutputName(`${sgnName}.txt`);
+              const txtPath = path.join(outDir, txtName);
+              const txtSize = writeSgnTextArtifact(sgnPath, txtPath, finalFile.platform, windowsArch, iterations);
+              try { fs.unlinkSync(sgnPath); } catch {}
+              finalFile = { ...finalFile, filename: txtName, size: txtSize };
+            } else {
+              finalFile = { ...finalFile, filename: sgnName, size: fs.statSync(sgnPath).size };
+            }
+          }
+          sendToStream({
+            type: "output",
+            text: `Shellcode ready: ${finalFile.size} bytes → ${finalFile.filename}\n`,
+            level: "success",
+          });
+        }
         (build.files as any[]).push(finalFile, ...extraFiles);
       }
 
